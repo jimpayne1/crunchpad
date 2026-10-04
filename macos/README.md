@@ -121,7 +121,7 @@ macos/
 
 ## Tracking upstream
 
-The fork only adds `macos/`, `.github/` and a banner at the top of the root
+The fork only adds `macos/`, `.github/`, `CLAUDE.md` and a banner at the top of the root
 `README.md`, so upstream merges should apply cleanly:
 
 ```sh
