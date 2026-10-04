@@ -72,8 +72,9 @@ for distribution, sign with a Developer ID and notarize.
 
 `macos/release.sh 1.0.0` builds a Developer ID-signed, notarized and stapled
 `build/Crunchpad-1.0.0.dmg`; add `--publish` to tag `v1.0.0` and attach the
-DMG to a GitHub release. The script header lists the one-time setup
-(Developer ID certificate and stored notary credentials). Releases are
+DMG to a GitHub release. It notarizes with an App Store Connect API key
+given by `ASC_KEY_ID` / `ASC_ISSUER_ID` (the `.p8` defaults to
+`~/.appstoreconnect/private_keys/`); the script header lists the setup. Releases are
 Apple silicon only, because Homebrew's Qt and ICU are arm64.
 
 For engine-only hacking, `build/engine/sccli` is a JSON REPL over the bridge
