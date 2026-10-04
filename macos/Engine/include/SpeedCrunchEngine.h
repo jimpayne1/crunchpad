@@ -17,7 +17,9 @@ void sc_free(char* s);
 
 // Evaluates and commits (assignments, `ans`). Returns
 // {"ok":bool,"error":str,"kind":"value|variable|function|unit|comment|none",
-//  "expression":str,"interpreted":str,"result":str,"bits":str}
+//  "expression":str,"interpreted":str,"simplified":str,"result":str,"bits":str}
+// "interpreted" is the expression formatted for display; "simplified" is
+// upstream's optional "= …" line (empty when not useful).
 // "bits" (binary digits, no prefix/sign) is present for integer results.
 char* sc_evaluate(const char* expr);
 

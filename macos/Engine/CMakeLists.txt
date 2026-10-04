@@ -43,6 +43,7 @@ add_library(scengine STATIC
     ${SC_SRC}/core/constants.h
     ${SC_SRC}/core/evaluator.h
     ${SC_SRC}/core/functions.h
+    ${SC_SRC}/gui/displayformatutils.cpp
     settings_mac.cpp
     bridge.cpp
 )

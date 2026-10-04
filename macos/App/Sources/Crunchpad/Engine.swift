@@ -13,6 +13,7 @@ struct Evaluation: Decodable, Equatable {
     var kind: Kind?
     var expression: String?
     var interpreted: String?
+    var simplified: String?
     var result: String?
     var bits: String?
 }

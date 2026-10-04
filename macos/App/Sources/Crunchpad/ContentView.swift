@@ -224,6 +224,14 @@ struct EntryRow: View {
                     .onTapGesture(count: 2) { calculator.use(entry) }
                     .help("Double-click to recall this expression")
 
+                if let simplified = entry.simplified, !simplified.isEmpty,
+                   simplified != entry.result, simplified != entry.interpreted {
+                    Text("= \(simplified)")
+                        .font(.system(size: calculator.displayFontSize * 0.68, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+
                 if let result = entry.result {
                     Text("= \(result)")
                         .font(.system(size: calculator.displayFontSize, weight: .medium, design: .monospaced))

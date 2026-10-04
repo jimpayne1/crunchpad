@@ -8,6 +8,7 @@
 #include "core/functions.h"
 #include "core/numberformatter.h"
 #include "core/settings.h"
+#include "gui/resultlineformatutils.h"
 #include "math/cmath.h"
 
 #include <QJsonArray>
@@ -88,12 +89,14 @@ char* runEvaluation(const char* raw, bool commit)
         kind = QStringLiteral("variable");
     }
 
+    // Same lines upstream's result display shows: the expression as typed
+    // (formatted, never folded), then an optional "= simplified" line.
     const QString interpreted = ev->interpretedExpression();
     out["ok"] = true;
     out["kind"] = kind;
-    out["interpreted"] = Settings::instance()->simplifyResultExpressions
-        ? Evaluator::formatInterpretedExpressionSimplifiedForDisplay(interpreted, ev)
-        : Evaluator::formatInterpretedExpressionForDisplay(interpreted, ev);
+    out["interpreted"] = ResultLineFormatUtils::formattedExpressionLineForDisplay(entered, interpreted, ev);
+    out["simplified"] = ResultLineFormatUtils::simplifiedExpressionLineForDisplay(
+        interpreted, entered, Settings::instance()->simplifyResultExpressions, ev);
     if (!result.isNan()) {
         out["result"] = NumberFormatter::format(result);
         // Binary digits for the bit field (integers only, sign dropped).

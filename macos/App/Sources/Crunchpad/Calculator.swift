@@ -132,6 +132,8 @@ struct HistoryEntry: Identifiable, Codable, Hashable {
     var id = UUID()
     var expression: String
     var interpreted: String
+    /// Upstream's optional "= …" simplification line (empty when not useful).
+    var simplified: String?
     var result: String?
     var bits: String?
     var kind: String
@@ -264,6 +266,7 @@ final class Calculator {
         let entry = HistoryEntry(
             expression: expression,
             interpreted: evaluation.interpreted ?? expression,
+            simplified: evaluation.simplified,
             result: evaluation.result,
             bits: evaluation.bits,
             kind: kind.rawValue)
@@ -295,6 +298,7 @@ final class Calculator {
             guard e.ok, let kind = e.kind, kind != .none else { return nil }
             var entry = old
             entry.interpreted = e.interpreted ?? old.expression
+            entry.simplified = e.simplified
             entry.result = e.result
             entry.bits = e.bits
             entry.kind = kind.rawValue
