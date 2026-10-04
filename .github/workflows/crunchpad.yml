@@ -1,4 +1,4 @@
-# Crunchpad CI: every push to `macos` builds the app. When macos/VERSION
+# Crunchpad CI: every push to `main` builds the app. When macos/VERSION
 # names a version that has no v* tag yet, the push also signs with the
 # Developer ID, notarizes, tags, creates the GitHub release and bumps the
 # Homebrew cask (macos/release.sh --publish).
@@ -13,7 +13,7 @@ name: Crunchpad
 
 on:
   push:
-    branches: [macos]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:

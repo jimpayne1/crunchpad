@@ -82,7 +82,7 @@ for distribution, sign with a Developer ID and notarize.
 ### Releases
 
 Releases are cut by CI (`.github/workflows/crunchpad.yml`). Every push to
-`macos` builds the app on macOS 15; to ship, bump `macos/VERSION` and push.
+`main` builds the app on macOS 15; to ship, bump `macos/VERSION` and push.
 If that version has no `v*` tag yet, CI signs with the Developer ID,
 notarizes, tags, publishes the GitHub release and bumps the
 [Homebrew cask](https://github.com/jimpayne1/homebrew-tap).
