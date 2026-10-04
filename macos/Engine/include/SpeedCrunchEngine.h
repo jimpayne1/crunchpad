@@ -17,7 +17,8 @@ void sc_free(char* s);
 
 // Evaluates and commits (assignments, `ans`). Returns
 // {"ok":bool,"error":str,"kind":"value|variable|function|unit|comment|none",
-//  "expression":str,"interpreted":str,"result":str}
+//  "expression":str,"interpreted":str,"result":str,"bits":str}
+// "bits" (binary digits, no prefix/sign) is present for integer results.
 char* sc_evaluate(const char* expr);
 
 // Side-effect free evaluation for the live result preview. Same shape.
@@ -34,6 +35,7 @@ char* sc_user_variables(void);      // [{"id","value","description"}]
 char* sc_user_functions(void);      // [{"name","args":[..],"expression","description"}]
 char* sc_user_units(void);          // [{"name","expression","description"}]
 char* sc_completions(const char* prefix); // [{"text","kind","detail"}]
+char* sc_book_page(const char* id);       // Formula book page HTML (not JSON); "" = index
 
 void sc_unset_variable(const char* id);
 void sc_unset_function(const char* name);

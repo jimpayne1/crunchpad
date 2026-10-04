@@ -14,6 +14,7 @@ struct Evaluation: Decodable, Equatable {
     var expression: String?
     var interpreted: String?
     var result: String?
+    var bits: String?
 }
 
 struct BuiltinFunction: Decodable, Identifiable, Hashable {
@@ -30,6 +31,12 @@ struct PhysicalConstant: Decodable, Identifiable, Hashable {
     var domain: String
     var subdomain: String
     var id: String { domain + "/" + name }
+
+    /// What gets inserted into the editor, matching upstream:
+    /// `value[unit]` joined by a no-break space.
+    var expression: String {
+        unit.isEmpty ? value : value + "\u{00A0}[" + unit + "]"
+    }
 }
 
 struct UserVariable: Decodable, Identifiable, Hashable {
@@ -104,6 +111,12 @@ enum Engine {
     static func userFunctions() -> [UserFunction] { decode(sc_user_functions()) ?? [] }
     static func userUnits() -> [UserUnit] { decode(sc_user_units()) ?? [] }
     static func completions(for prefix: String) -> [Completion] { decode(sc_completions(prefix)) ?? [] }
+
+    static func bookPage(_ id: String) -> String {
+        guard let pointer = sc_book_page(id) else { return "" }
+        defer { sc_free(pointer) }
+        return String(cString: pointer)
+    }
 
     static func unsetVariable(_ id: String) { sc_unset_variable(id) }
     static func unsetFunction(_ name: String) { sc_unset_function(name) }

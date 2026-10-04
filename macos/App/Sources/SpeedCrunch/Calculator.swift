@@ -89,11 +89,51 @@ enum Appearance: String, CaseIterable, Identifiable {
     }
 }
 
+/// Inspector panels, numbered like upstream's docks (⌘1…⌘8).
+enum InspectorPanel: Int, CaseIterable, Identifiable {
+    case book = 1, constants, functions, variables, userFunctions, userUnits, history, bitField
+    var id: Int { rawValue }
+    var title: String {
+        switch self {
+        case .book: "Formula Book"
+        case .constants: "Constants"
+        case .functions: "Functions"
+        case .variables: "Variables"
+        case .userFunctions: "User Functions"
+        case .userUnits: "User Units"
+        case .history: "History"
+        case .bitField: "Bit Field"
+        }
+    }
+    var systemImage: String {
+        switch self {
+        case .book: "book"
+        case .constants: "atom"
+        case .functions: "function"
+        case .variables: "x.squareroot"
+        case .userFunctions: "f.cursive"
+        case .userUnits: "ruler"
+        case .history: "clock.arrow.circlepath"
+        case .bitField: "square.grid.4x3.fill"
+        }
+    }
+    var shortcut: KeyEquivalent { KeyEquivalent(Character(String(rawValue))) }
+}
+
+enum ScrollCommand: Equatable {
+    case pageUp, pageDown, lineUp, lineDown, top, bottom
+}
+
+enum FocusField: Hashable {
+    case editor, inspectorFilter
+}
+
 struct HistoryEntry: Identifiable, Codable, Hashable {
     var id = UUID()
     var expression: String
     var interpreted: String
     var result: String?
+    var bits: String?
     var kind: String
     var date = Date()
 }
@@ -135,6 +175,21 @@ final class Calculator {
     private var draftBeforeRecall = ""
     /// Bumped whenever the editor should take focus.
     private(set) var focusRequest = 0
+    /// Bumped to move focus between editor and inspector (F6 / ⇧F6).
+    private(set) var focusCycleRequest = 0
+    /// Editor selection, bound to the text field (for ⌘( and F1).
+    var selection: TextSelection?
+
+    // Window chrome.
+    var showInspector = false
+    var inspectorPanel: InspectorPanel = .functions
+    var showStatusBar: Bool { didSet { defaults.set(showStatusBar, forKey: "showStatusBar") } }
+    var displayFontSize: Double { didSet { defaults.set(displayFontSize, forKey: "displayFontSize") } }
+    private(set) var scrollRequest: (command: ScrollCommand, serial: Int)?
+    /// Function shown by context help (F1).
+    var helpFunction: BuiltinFunction?
+    /// Value shown in the bit field; follows the last integer result.
+    private(set) var bitValue: UInt64 = 0
 
     // Symbol tables surfaced in the inspector.
     private(set) var variables: [UserVariable] = []
@@ -174,6 +229,8 @@ final class Calculator {
         keepLastExpression = d.bool(forKey: "keepLastExpression")
         autoAns = d.object(forKey: "autoAns") as? Bool ?? true
         appearance = Appearance(rawValue: d.string(forKey: "appearance") ?? "") ?? .dark
+        showStatusBar = d.bool(forKey: "showStatusBar")
+        displayFontSize = d.object(forKey: "displayFontSize") as? Double ?? 20
 
         Engine.start()
         applySettingsToEngine()
@@ -206,8 +263,11 @@ final class Calculator {
             expression: expression,
             interpreted: evaluation.interpreted ?? expression,
             result: evaluation.result,
+            bits: evaluation.bits,
             kind: kind.rawValue)
         history.append(entry)
+        if entry.result != nil { bitValue = Self.bitValue(from: entry.bits) }
+        helpFunction = nil
         lastError = nil
         recallIndex = nil
         refreshSymbols()
@@ -234,11 +294,13 @@ final class Calculator {
             var entry = old
             entry.interpreted = e.interpreted ?? old.expression
             entry.result = e.result
+            entry.bits = e.bits
             entry.kind = kind.rawValue
             return entry
         }
         refreshSymbols()
         refreshPreview()
+        bitValue = Self.bitValue(from: history.last(where: { $0.result != nil })?.bits)
     }
 
     // MARK: Editing helpers
@@ -255,6 +317,107 @@ final class Calculator {
     func clearInput() {
         input = ""
         recallIndex = nil
+    }
+
+    /// ⌘( / ⌘): wrap the selection, or the whole expression, in parentheses.
+    func wrapInParentheses() {
+        if case let .selection(range)? = selection?.indices, !range.isEmpty,
+           range.lowerBound >= input.startIndex, range.upperBound <= input.endIndex {
+            input.replaceSubrange(range, with: "(" + input[range] + ")")
+        } else if !input.isEmpty {
+            input = "(" + input + ")"
+        }
+        selection = TextSelection(insertionPoint: input.endIndex)
+        requestFocus()
+    }
+
+    /// F1: show usage for the function under the caret, or else the
+    /// innermost function call enclosing it (`sqrt(9|` → sqrt).
+    func showContextHelp() {
+        helpFunction = functionAtCaret
+        if helpFunction == nil { NSSound.beep() }
+    }
+
+    private var functionAtCaret: BuiltinFunction? {
+        var caret = input.endIndex
+        if case let .selection(range)? = selection?.indices, range.upperBound <= input.endIndex {
+            caret = range.lowerBound
+        }
+        let isIdent: (Character) -> Bool = { $0.isLetter || $0.isNumber || $0 == "_" }
+        let lookup: (Substring) -> BuiltinFunction? = { name in
+            self.builtinFunctions.first { $0.id == name }
+        }
+        /// Identifier ending right before `index`.
+        func identifier(endingAt index: String.Index) -> Substring {
+            var start = index
+            while start > input.startIndex, isIdent(input[input.index(before: start)]) {
+                start = input.index(before: start)
+            }
+            return input[start..<index]
+        }
+
+        // Word under the caret.
+        var end = caret
+        while end < input.endIndex, isIdent(input[end]) { end = input.index(after: end) }
+        if let f = lookup(identifier(endingAt: end)) { return f }
+
+        // Walk outwards through unmatched "(" to the enclosing calls.
+        var depth = 0
+        var i = caret
+        while i > input.startIndex {
+            i = input.index(before: i)
+            switch input[i] {
+            case ")": depth += 1
+            case "(":
+                if depth > 0 { depth -= 1; continue }
+                if let f = lookup(identifier(endingAt: i)) { return f }
+            default: break
+            }
+        }
+        return nil
+    }
+
+    /// ⌃Space: pick a physical constant to insert.
+    func showConstantPicker() {
+        completions = constants.map {
+            Completion(text: $0.name, kind: "physConst",
+                       detail: $0.unit.isEmpty ? $0.value : "\($0.value) \($0.unit)")
+        }
+        completionIndex = 0
+    }
+
+    func togglePanel(_ panel: InspectorPanel) {
+        if showInspector && inspectorPanel == panel {
+            showInspector = false
+            requestFocus()
+        } else {
+            inspectorPanel = panel
+            showInspector = true
+        }
+    }
+
+    func scroll(_ command: ScrollCommand) {
+        scrollRequest = (command, (scrollRequest?.serial ?? 0) &+ 1)
+    }
+
+    func cycleFocus() { focusCycleRequest &+= 1 }
+
+    func adjustFontSize(by delta: Double) {
+        displayFontSize = min(48, max(11, displayFontSize + delta))
+    }
+
+    // MARK: Bit field
+
+    private static func bitValue(from bits: String?) -> UInt64 {
+        guard let bits, !bits.isEmpty else { return 0 }
+        return UInt64(bits.suffix(64), radix: 2) ?? 0
+    }
+
+    /// Like upstream, editing bits writes the new value into the editor as hex.
+    func setBits(_ value: UInt64) {
+        bitValue = value
+        input = "0x" + String(value, radix: 16, uppercase: true)
+        requestFocus()
     }
 
     func requestFocus() { focusRequest &+= 1 }
@@ -388,6 +551,12 @@ final class Calculator {
     }
 
     func accept(_ completion: Completion) {
+        if completion.kind == "physConst",
+           let c = constants.first(where: { $0.name == completion.text }) {
+            completions = []
+            insert(c.expression)
+            return
+        }
         let prefix = trailingIdentifier
         var text = String(input.dropLast(prefix.count)) + completion.text
         let isCallable = completion.kind == "function" || completion.kind == "userFunction"

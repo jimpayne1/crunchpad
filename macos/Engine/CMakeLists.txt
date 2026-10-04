@@ -25,6 +25,8 @@ add_library(scengine STATIC
     ${SC_SRC}/math/cnumberparser.cpp
     ${SC_SRC}/math/rational.cpp
     ${SC_SRC}/math/quantity.cpp
+    ${SC_SRC}/core/book.cpp
+    ${SC_SRC}/core/pageserver.cpp
     ${SC_SRC}/core/constants.cpp
     ${SC_SRC}/core/evaluator.cpp
     ${SC_SRC}/core/functions.cpp
@@ -36,6 +38,8 @@ add_library(scengine STATIC
     ${SC_SRC}/core/userfunction.cpp
     ${SC_SRC}/core/userunit.cpp
     ${SC_SRC}/core/variable.cpp
+    ${SC_SRC}/core/book.h
+    ${SC_SRC}/core/pageserver.h
     ${SC_SRC}/core/constants.h
     ${SC_SRC}/core/evaluator.h
     ${SC_SRC}/core/functions.h

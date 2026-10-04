@@ -16,19 +16,40 @@ see is SwiftUI.
   to accept, Esc to dismiss)
 - ↑/↓ recall history; double-click a result to insert it
 - Type an operator first (`+5`, `*2`) to continue from the last result (auto `ans`)
-- Inspector sidebar: your definitions, built-in functions and physical
-  constants, all filterable
+- Inspector (⌘1–⌘8): formula book, constants, functions, variables, user
+  functions, user units, history and a 64-bit bit field
 - Menu bar quick calculator, sharing state with the main window
 - Session is restored on launch by replaying the transcript, so variables and
   functions survive restarts
 - Dark by default (System/Light in Settings), native Settings window, keyboard shortcuts
 
+Keyboard shortcuts follow upstream SpeedCrunch (Ctrl → ⌘ on macOS). On a Mac
+keyboard the F-keys may need `fn` unless "Use F1, F2, etc. keys as standard
+function keys" is on.
+
 | Shortcut | Action |
 | --- | --- |
-| ⌘R | Insert `ans` |
-| ⇧⌘C | Copy last result |
+| Return | Evaluate |
+| ↑ / ↓ | Recall history (or move in the popup) |
+| Tab / Esc | Accept / dismiss suggestion; Esc on empty popup clears the input |
+| ⌘R | Copy last result |
+| ⌘C / ⌘V / ⌘A | Copy / paste / select expression |
+| ⌘( or ⌘) | Wrap the selection (or the whole expression) in parentheses |
+| ⌃Space | Insert a physical constant |
+| F1 | Help for the function under the caret |
+| ⌘1 … ⌘8 | Formula book, constants, functions, variables, user functions, user units, history, bit field |
+| ⌘B | Status bar |
+| F2 F3 F4 F5 | General / fixed / engineering / scientific notation |
+| F7 F8 F9 F10 | Octal / hexadecimal / sexagesimal / binary notation |
+| Page Up / Page Down | Scroll results by page (⇧ by line, ⌘ to top/bottom) |
+| ⇧↑ / ⇧↓ (or ⌘+ / ⌘−) | Larger / smaller result text |
+| F6 / ⇧F6 | Move focus between editor and inspector |
+| Delete | Remove the selected variable, function or unit in the inspector |
 | ⌥⌘R / ⌥⌘D | Radians / degrees |
 | ⌘K / ⇧⌘K | Clear history / clear history and definitions |
+
+Not ported: upstream's multi-session tabs and panes (⌘N, ⌘O, ⌘T, ⇧⌘T,
+⌘⌥←/→). This app keeps a single session.
 
 ## Building
 
@@ -76,6 +97,9 @@ If upstream adds a new core source file or a `Settings` field, update
 `settings_mac.cpp` copies the constructor and the radix/grouping helpers from
 `src/core/settings.cpp` verbatim.
 
-## License
+## Copyright & License
 
-GPL-2.0-or-later, same as SpeedCrunch.
+macOS port © 2026 James Payne.
+SpeedCrunch © 2004–2026 SpeedCrunch developers.
+
+GPL-2.0-or-later, same as SpeedCrunch (see `LICENSE`).

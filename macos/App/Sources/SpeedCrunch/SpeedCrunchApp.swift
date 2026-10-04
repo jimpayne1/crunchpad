@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+import AppKit
 import SwiftUI
 
 @main
 struct SpeedCrunchApp: App {
     @State private var calculator = Calculator.shared
     @AppStorage("showMenuBarExtra") private var showMenuBarExtra = true
+
+    init() {
+        EditorKeys.install()
+    }
 
     var body: some Scene {
         Window("SpeedCrunch", id: "main") {
@@ -32,6 +37,15 @@ struct SpeedCrunchApp: App {
     }
 }
 
+extension KeyEquivalent {
+    /// Function keys (F1…F12) as menu key equivalents.
+    static func function(_ n: Int) -> KeyEquivalent {
+        KeyEquivalent(Character(UnicodeScalar(UInt32(0xF703 + n))!))
+    }
+}
+
+/// Keyboard shortcuts follow upstream SpeedCrunch's table, with Ctrl as ⌘
+/// (as upstream does on macOS).
 struct CalculatorCommands: Commands {
     @Bindable var calculator: Calculator
 
@@ -39,22 +53,50 @@ struct CalculatorCommands: Commands {
         CommandGroup(after: .pasteboard) {
             Divider()
             Button("Copy Last Result") { calculator.copyLastResult() }
-                .keyboardShortcut("c", modifiers: [.command, .shift])
+                .keyboardShortcut("r", modifiers: .command)
                 .disabled(calculator.lastResult == nil)
-            Button("Insert Last Result") { calculator.insert("ans") }
-                .keyboardShortcut("r", modifiers: [.command])
+            Button("Wrap in Parentheses") { calculator.wrapInParentheses() }
+                .keyboardShortcut("(", modifiers: .command)
+            Button("Insert Constant…") { calculator.showConstantPicker(); calculator.requestFocus() }
+                .keyboardShortcut(.space, modifiers: .control)
+        }
+
+        CommandGroup(after: .sidebar) {
+            ForEach(InspectorPanel.allCases) { panel in
+                Toggle(panel.title, isOn: Binding(
+                    get: { calculator.showInspector && calculator.inspectorPanel == panel },
+                    set: { _ in calculator.togglePanel(panel) }))
+                    .keyboardShortcut(panel.shortcut, modifiers: .command)
+            }
+            Toggle("Status Bar", isOn: $calculator.showStatusBar)
+                .keyboardShortcut("b", modifiers: .command)
+            Divider()
+            Button("Larger Text") { calculator.adjustFontSize(by: 1) }
+                .keyboardShortcut("+", modifiers: .command)
+            Button("Smaller Text") { calculator.adjustFontSize(by: -1) }
+                .keyboardShortcut("-", modifiers: .command)
+            Divider()
+            Button("Move Focus Forward") { calculator.cycleFocus() }
+                .keyboardShortcut(.function(6), modifiers: [])
+            Button("Move Focus Backward") { calculator.cycleFocus() }
+                .keyboardShortcut(.function(6), modifiers: .shift)
+            Divider()
         }
 
         CommandMenu("Calculator") {
-            Picker("Angle Unit", selection: $calculator.angleUnit) {
-                ForEach(AngleUnit.allCases) { unit in
-                    Text(unit.label).tag(unit)
-                }
+            Section("Result Format") {
+                formatToggle(.general, key: 2)
+                formatToggle(.fixed, key: 3)
+                formatToggle(.engineering, key: 4)
+                formatToggle(.scientific, key: 5)
+                formatToggle(.octal, key: 7)
+                formatToggle(.hexadecimal, key: 8)
+                formatToggle(.sexagesimal, key: 9)
+                formatToggle(.binary, key: 10)
             }
-            Picker("Result Format", selection: $calculator.resultFormat) {
-                ForEach(ResultFormat.allCases) { format in
-                    Text(format.label).tag(format)
-                }
+            Divider()
+            Picker("Angle Unit", selection: $calculator.angleUnit) {
+                ForEach(AngleUnit.allCases) { Text($0.label).tag($0) }
             }
             Button("Use Radians") { calculator.angleUnit = .radian }
                 .keyboardShortcut("r", modifiers: [.command, .option])
@@ -63,9 +105,24 @@ struct CalculatorCommands: Commands {
             Divider()
             Button("Recalculate All") { calculator.recalculateAll() }
             Button("Clear History") { calculator.clearHistory() }
-                .keyboardShortcut("k", modifiers: [.command])
-            Button("Clear History and Definitions…") { calculator.clearAll() }
+                .keyboardShortcut("k", modifiers: .command)
+            Button("Clear History and Definitions") { calculator.clearAll() }
                 .keyboardShortcut("k", modifiers: [.command, .shift])
         }
+
+        CommandGroup(replacing: .help) {
+            Button("Function Help") { calculator.showContextHelp() }
+                .keyboardShortcut(.function(1), modifiers: [])
+            Divider()
+            Link("SpeedCrunch Manual", destination: URL(string: "https://speedcrunch.org/userguide/")!)
+            Link("macOS Port on GitHub", destination: URL(string: "https://github.com/jimpayne1/speedcrunch/tree/macos")!)
+        }
+    }
+
+    private func formatToggle(_ format: ResultFormat, key: Int) -> some View {
+        Toggle(format.label, isOn: Binding(
+            get: { calculator.resultFormat == format },
+            set: { _ in calculator.resultFormat = format }))
+            .keyboardShortcut(.function(key), modifiers: [])
     }
 }

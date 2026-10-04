@@ -2,6 +2,7 @@
 
 #include "SpeedCrunchEngine.h"
 
+#include "core/book.h"
 #include "core/constants.h"
 #include "core/evaluator.h"
 #include "core/functions.h"
@@ -95,6 +96,12 @@ char* runEvaluation(const char* raw, bool commit)
         : Evaluator::formatInterpretedExpressionForDisplay(interpreted, ev);
     if (!result.isNan()) {
         out["result"] = NumberFormatter::format(result);
+        // Binary digits for the bit field (integers only, sign dropped).
+        if (result.isInteger() && !result.isZero()) {
+            QString bin = NumberFormatter::format(result, 'b');
+            bin.remove(QLatin1Char('-')).remove(QChar(0x2212)).remove(QStringLiteral("0b"));
+            out["bits"] = bin;
+        }
     }
     return toJson(out);
 }
@@ -264,6 +271,13 @@ char* sc_completions(const char* rawPrefix)
         add(u, "unit", QString());
 
     return toJson(arr);
+}
+
+char* sc_book_page(const char* id)
+{
+    static Book* book = new Book;
+    const QString page = book->getPageContent(str(id).isEmpty() ? QStringLiteral("index") : str(id));
+    return dup(page.toUtf8());
 }
 
 void sc_unset_variable(const char* id)

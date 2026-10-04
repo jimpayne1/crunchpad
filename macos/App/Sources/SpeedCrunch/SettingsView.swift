@@ -65,6 +65,7 @@ struct SettingsView: View {
 struct QuickCalculatorView: View {
     @Environment(Calculator.self) private var calculator
     @Environment(\.openWindow) private var openWindow
+    @FocusState private var focus: FocusField?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -92,7 +93,8 @@ struct QuickCalculatorView: View {
             .frame(height: 170)
 
             Divider()
-            InputBar(fontSize: 16)
+            InputBar(focus: $focus, fontSize: 16)
+                .onAppear { focus = .editor }
             Divider()
             HStack {
                 Text(calculator.angleUnit.short)

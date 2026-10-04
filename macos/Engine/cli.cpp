@@ -7,9 +7,16 @@
 #include <iostream>
 #include <string>
 
-int main()
+int main(int argc, char** argv)
 {
     sc_init();
+    // --constants: print the constants list (JSON) and exit.
+    if (argc > 1 && std::string(argv[1]) == "--constants") {
+        char* out = sc_constants();
+        std::printf("%s\n", out);
+        sc_free(out);
+        return 0;
+    }
     std::string line;
     while (std::getline(std::cin, line)) {
         char* out = sc_evaluate(line.c_str());
