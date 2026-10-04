@@ -1,0 +1,116 @@
+# Crunchpad CI: every push to `macos` builds the app. When macos/VERSION
+# names a version that has no v* tag yet, the push also signs with the
+# Developer ID, notarizes, tags, creates the GitHub release and bumps the
+# Homebrew cask (macos/release.sh --publish).
+#
+# Secrets:
+#   DEVELOPER_ID_P12           base64 of the exported Developer ID .p12
+#   DEVELOPER_ID_P12_PASSWORD  its export password
+#   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8   App Store Connect API key
+#   TAP_GITHUB_TOKEN           token with contents:write on jimpayne1/homebrew-tap
+
+name: Crunchpad
+
+on:
+  push:
+    branches: [macos]
+  workflow_dispatch:
+
+concurrency:
+  group: crunchpad-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    # Build on the oldest supported macOS: Homebrew bottles target the
+    # runner's OS, and the app bundles them (see the check in build.sh).
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # build number = commit count; tag lookup
+
+      - name: Install build dependencies
+        run: |
+          brew install qtbase
+          command -v cmake >/dev/null || brew install cmake
+
+      - name: Decide whether to release
+        id: version
+        run: |
+          VERSION="$(tr -d '[:space:]' < macos/VERSION)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "v$VERSION is already released; building only." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "Releasing v$VERSION." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Build
+        if: steps.version.outputs.release != 'true'
+        run: macos/build.sh
+
+      - name: Import Developer ID certificate
+        if: steps.version.outputs.release == 'true'
+        env:
+          DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
+          DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          printf '%s' "$DEVELOPER_ID_P12" | base64 --decode > "$RUNNER_TEMP/devid.p12"
+          security import "$RUNNER_TEMP/devid.p12" -k "$KEYCHAIN" \
+            -P "$DEVELOPER_ID_P12_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/devid.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" \
+            $(security list-keychains -d user | tr -d '"')
+          security find-identity -v -p codesigning "$KEYCHAIN"
+
+      - name: Install App Store Connect key
+        if: steps.version.outputs.release == 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          printf '%s\n' "$ASC_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8
+          chmod 600 ~/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8
+
+      - name: Release
+        if: steps.version.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          macos/release.sh "${{ steps.version.outputs.version }}" --publish
+
+      - name: Upload build
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Crunchpad-${{ steps.version.outputs.version }}-${{ github.run_number }}
+          path: |
+            build/Crunchpad-*.dmg
+            build/Crunchpad.app
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Remove signing material
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
+          rm -rf ~/.appstoreconnect

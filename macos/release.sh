@@ -98,10 +98,22 @@ if [[ "$PUBLISH" == "--publish" ]]; then
 
     echo "==> Bump Homebrew cask"
     SHA="$(shasum -a 256 "$DMG" | cut -d' ' -f1)"
+    MIN_OS="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$APP/Contents/Info.plist")"
+    case "${MIN_OS%%.*}" in
+        14) MACOS=sonoma ;; 15) MACOS=sequoia ;; 26) MACOS=tahoe ;;
+        *) echo "No Homebrew macOS symbol for $MIN_OS" >&2; exit 1 ;;
+    esac
     TAP="$(mktemp -d)"
-    git clone -q "git@github.com:$TAP_REPO.git" "$TAP"
+    # CI can't use SSH; it passes a token with write access to the tap.
+    if [[ -n "${TAP_GITHUB_TOKEN:-}" ]]; then
+        TAP_URL="https://x-access-token:$TAP_GITHUB_TOKEN@github.com/$TAP_REPO.git"
+    else
+        TAP_URL="git@github.com:$TAP_REPO.git"
+    fi
+    git clone -q "$TAP_URL" "$TAP"
     sed -i '' -e "s/^  version \".*\"/  version \"$VERSION\"/" \
-              -e "s/^  sha256 \".*\"/  sha256 \"$SHA\"/" "$TAP/Casks/crunchpad.rb"
+              -e "s/^  sha256 \".*\"/  sha256 \"$SHA\"/" \
+              -e "s/^  depends_on macos: .*/  depends_on macos: :$MACOS/" "$TAP/Casks/crunchpad.rb"
     git -C "$TAP" commit -qam "crunchpad $VERSION"
     git -C "$TAP" push -q
     rm -rf "$TAP"

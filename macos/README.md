@@ -81,13 +81,21 @@ for distribution, sign with a Developer ID and notarize.
 
 ### Releases
 
-`macos/release.sh 1.0.0` builds a Developer ID-signed, notarized and stapled
-`build/Crunchpad-1.0.0.dmg`; add `--publish` to tag `v1.0.0` and attach the
-DMG to a GitHub release. It notarizes with Crunchpad's App Store Connect API
-key (IDs built in; the `.p8` is read from `~/.appstoreconnect/private_keys/`).
-To release from another Mac you need that `.p8` and the Developer ID
-certificate with its private key (import the backed-up `.p12`). Releases are
-Apple silicon only, because Homebrew's Qt and ICU are arm64.
+Releases are cut by CI (`.github/workflows/crunchpad.yml`). Every push to
+`macos` builds the app on macOS 15; to ship, bump `macos/VERSION` and push.
+If that version has no `v*` tag yet, CI signs with the Developer ID,
+notarizes, tags, publishes the GitHub release and bumps the
+[Homebrew cask](https://github.com/jimpayne1/homebrew-tap).
+
+Repository secrets: `DEVELOPER_ID_P12` (base64 of the exported certificate
+and key), `DEVELOPER_ID_P12_PASSWORD`, `ASC_KEY_ID`, `ASC_ISSUER_ID`,
+`ASC_KEY_P8` and `TAP_GITHUB_TOKEN`.
+
+`macos/release.sh X.Y.Z [--publish]` does the same locally, given the
+Developer ID in the keychain and the `.p8` in
+`~/.appstoreconnect/private_keys/`. Signed builds must run on macOS 15:
+Homebrew's libraries target the build machine's OS, and `build.sh` refuses
+to sign a bundle whose libraries need a newer macOS than it declares.
 
 For engine-only hacking, `build/engine/sccli` is a JSON REPL over the bridge
 (`cmake --build build/engine --target sccli`).

@@ -123,6 +123,23 @@ if otool -L "$APP/Contents/MacOS/Crunchpad" "$FW"/*.dylib "$QTFW/Versions/A/QtCo
     echo "warning: bundle still references Homebrew paths" >&2
 fi
 
+# Homebrew bottles target the build machine's macOS, so building on a newer
+# release can silently raise the real minimum. Refuse to ship that.
+MIN_OS="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$APP/Contents/Info.plist")"
+TOO_NEW=0
+for bin in "$APP/Contents/MacOS/Crunchpad" "$FW"/*.dylib "$QTFW/Versions/A/QtCore"; do
+    minos="$(vtool -show-build "$bin" 2>/dev/null | awk '/minos/ { print $2; exit }')"
+    if [[ -n "$minos" && "$(printf '%s\n%s\n' "$minos" "$MIN_OS" | sort -V | tail -1)" != "$MIN_OS" ]]; then
+        echo "warning: $(basename "$bin") requires macOS $minos, but the app declares $MIN_OS" >&2
+        TOO_NEW=1
+    fi
+done
+# Fatal for signed (release) builds; local ad hoc builds only warn.
+if [[ $TOO_NEW == 1 && "$SIGN_IDENTITY" != "-" && -z "${ALLOW_NEWER_DEPS:-}" ]]; then
+    echo "Release builds must run on macOS $MIN_OS (CI does); ALLOW_NEWER_DEPS=1 overrides." >&2
+    exit 1
+fi
+
 if [[ "$SIGN_IDENTITY" == "-" ]]; then
     echo "==> Sign (ad hoc)"
     SIGN_FLAGS=(--force --sign -)
