@@ -10,10 +10,9 @@
 # Setup:
 #   1. A "Developer ID Application" certificate in the login keychain
 #      (Xcode > Settings > Accounts > Manage Certificates > +).
-#   2. An App Store Connect API key (Team Key, Developer role) for notarizing:
-#        ASC_KEY_ID      key ID
-#        ASC_ISSUER_ID   issuer ID
-#        ASC_KEY_PATH    .p8 file (default ~/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8)
+#   2. The App Store Connect API key's .p8 file (only it is secret) at
+#      ~/.appstoreconnect/private_keys/AuthKey_<ASC_KEY_ID>.p8, or ASC_KEY_PATH.
+#      ASC_KEY_ID / ASC_ISSUER_ID default to Crunchpad's key below.
 #      The same names are used as GitHub Actions secrets (ASC_KEY_P8 holds
 #      the .p8 contents there). Alternatively set NOTARY_PROFILE to a
 #      notarytool keychain profile.
@@ -27,6 +26,9 @@ VERSION="${VERSION#v}"
 PUBLISH="${2:-}"
 REPO="jimpayne1/crunchpad"   # explicit: gh would otherwise target the fork's parent
 TAP_REPO="jimpayne1/homebrew-tap"
+# Not secret: they identify the key, the .p8 file is what authenticates.
+ASC_KEY_ID="${ASC_KEY_ID-6F3V3U5448}"
+ASC_ISSUER_ID="${ASC_ISSUER_ID-69a6de84-6ee0-47e3-e053-5b8c7c11a4d1}"
 
 IDENTITY="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning \
     | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -1)}"
