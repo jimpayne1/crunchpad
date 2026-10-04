@@ -4,7 +4,8 @@
 # Builds a Developer ID-signed, notarized and stapled Crunchpad.dmg.
 #
 #   macos/release.sh 1.0.0             # build/Crunchpad-1.0.0.dmg
-#   macos/release.sh 1.0.0 --publish   # also tag v1.0.0 and create a GitHub release
+#   macos/release.sh 1.0.0 --publish   # also tag v1.0.0, create a GitHub release
+#                                      # and bump the Homebrew cask
 #
 # Setup:
 #   1. A "Developer ID Application" certificate in the login keychain
@@ -25,6 +26,7 @@ VERSION="${1:?usage: release.sh <version> [--publish]}"
 VERSION="${VERSION#v}"
 PUBLISH="${2:-}"
 REPO="jimpayne1/crunchpad"   # explicit: gh would otherwise target the fork's parent
+TAP_REPO="jimpayne1/homebrew-tap"
 
 IDENTITY="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning \
     | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -1)}"
@@ -90,6 +92,16 @@ if [[ "$PUBLISH" == "--publish" ]]; then
     git -C "$ROOT" tag -a "v$VERSION" -m "Crunchpad $VERSION"
     git -C "$ROOT" push origin "v$VERSION"
     gh release create "v$VERSION" "$DMG" --repo "$REPO" --title "Crunchpad $VERSION" \
-        --notes "Notarized build for macOS 15 and later (Apple silicon). Drag Crunchpad to Applications."
+        --notes "Notarized build for macOS 15 and later (Apple silicon). Drag Crunchpad to Applications, or: brew install --cask jimpayne1/tap/crunchpad"
+
+    echo "==> Bump Homebrew cask"
+    SHA="$(shasum -a 256 "$DMG" | cut -d' ' -f1)"
+    TAP="$(mktemp -d)"
+    git clone -q "git@github.com:$TAP_REPO.git" "$TAP"
+    sed -i '' -e "s/^  version \".*\"/  version \"$VERSION\"/" \
+              -e "s/^  sha256 \".*\"/  sha256 \"$SHA\"/" "$TAP/Casks/crunchpad.rb"
+    git -C "$TAP" commit -qam "crunchpad $VERSION"
+    git -C "$TAP" push -q
+    rm -rf "$TAP"
 fi
 echo "Done: $DMG"

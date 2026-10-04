@@ -53,6 +53,17 @@ function keys" is on.
 Not ported: upstream's multi-session tabs and panes (⌘N, ⌘O, ⌘T, ⇧⌘T,
 ⌘⌥←/→). This app keeps a single session.
 
+## Installing
+
+Download the notarized DMG from
+[Releases](https://github.com/jimpayne1/crunchpad/releases), or use Homebrew:
+
+```sh
+brew install --cask jimpayne1/tap/crunchpad
+```
+
+Requires macOS 15 or later on Apple silicon.
+
 ## Building
 
 Requires Xcode 16+ (Swift 6) and Homebrew.
