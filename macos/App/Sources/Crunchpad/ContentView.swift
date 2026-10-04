@@ -23,7 +23,7 @@ struct ContentView: View {
             InspectorView(focus: $focus)
                 .inspectorColumnWidth(min: 260, ideal: 300, max: 460)
         }
-        .navigationTitle("SpeedCrunch")
+        .navigationTitle("Crunchpad")
         .navigationSubtitle("\(calculator.angleUnit.label) · \(calculator.resultFormat.label)")
         .onAppear { focus = .editor }
         .onChange(of: calculator.focusRequest) { focus = .editor }
@@ -181,7 +181,7 @@ struct TranscriptView: View {
 private struct EmptyTranscript: View {
     var body: some View {
         ContentUnavailableView {
-            Label("SpeedCrunch", systemImage: "function")
+            Label("Crunchpad", systemImage: "function")
         } description: {
             VStack(spacing: 6) {
                 Text("High-precision calculator. Try:")

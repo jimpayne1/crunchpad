@@ -4,7 +4,7 @@ import AppKit
 import SwiftUI
 
 @main
-struct SpeedCrunchApp: App {
+struct CrunchpadApp: App {
     @State private var calculator = Calculator.shared
     @AppStorage("showMenuBarExtra") private var showMenuBarExtra = true
 
@@ -13,7 +13,7 @@ struct SpeedCrunchApp: App {
     }
 
     var body: some Scene {
-        Window("SpeedCrunch", id: "main") {
+        Window("Crunchpad", id: "main") {
             ContentView()
                 .environment(calculator)
                 .preferredColorScheme(calculator.appearance.colorScheme)
@@ -28,7 +28,7 @@ struct SpeedCrunchApp: App {
                 .preferredColorScheme(calculator.appearance.colorScheme)
         }
 
-        MenuBarExtra("SpeedCrunch", systemImage: "function", isInserted: $showMenuBarExtra) {
+        MenuBarExtra("Crunchpad", systemImage: "function", isInserted: $showMenuBarExtra) {
             QuickCalculatorView()
                 .environment(calculator)
                 .preferredColorScheme(calculator.appearance.colorScheme)
@@ -115,7 +115,7 @@ struct CalculatorCommands: Commands {
                 .keyboardShortcut(.function(1), modifiers: [])
             Divider()
             Link("SpeedCrunch Manual", destination: URL(string: "https://speedcrunch.org/userguide/")!)
-            Link("macOS Port on GitHub", destination: URL(string: "https://github.com/jimpayne1/speedcrunch/tree/macos")!)
+            Link("Crunchpad on GitHub", destination: URL(string: "https://github.com/jimpayne1/crunchpad")!)
         }
     }
 

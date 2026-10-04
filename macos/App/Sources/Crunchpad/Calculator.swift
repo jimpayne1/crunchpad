@@ -216,6 +216,7 @@ final class Calculator {
     @ObservationIgnored private var restoring = false
 
     private init() {
+        Self.migrateFromSpeedCrunchBuild()
         let d = UserDefaults.standard
         angleUnit = AngleUnit(rawValue: d.string(forKey: "angleUnit") ?? "") ?? .radian
         resultFormat = ResultFormat(rawValue: d.string(forKey: "resultFormat") ?? "") ?? .general
@@ -601,9 +602,31 @@ final class Calculator {
 
     // MARK: Persistence
 
+    /// Earlier builds of this port were called SpeedCrunch
+    /// (org.speedcrunch.mac); bring their settings and session across once.
+    private static func migrateFromSpeedCrunchBuild() {
+        let d = UserDefaults.standard
+        guard !d.bool(forKey: "migratedFromSpeedCrunch") else { return }
+        d.set(true, forKey: "migratedFromSpeedCrunch")
+        if let old = d.persistentDomain(forName: "org.speedcrunch.mac") {
+            for (key, value) in old where d.object(forKey: key) == nil {
+                d.set(value, forKey: key)
+            }
+        }
+        let fm = FileManager.default
+        let support = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let oldSession = support.appendingPathComponent("SpeedCrunch/session.json")
+        let newDir = support.appendingPathComponent("Crunchpad", isDirectory: true)
+        let newSession = newDir.appendingPathComponent("session.json")
+        if fm.fileExists(atPath: oldSession.path), !fm.fileExists(atPath: newSession.path) {
+            try? fm.createDirectory(at: newDir, withIntermediateDirectories: true)
+            try? fm.copyItem(at: oldSession, to: newSession)
+        }
+    }
+
     private var sessionURL: URL {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("SpeedCrunch", isDirectory: true)
+            .appendingPathComponent("Crunchpad", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("session.json")
     }

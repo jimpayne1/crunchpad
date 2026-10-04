@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>SpeedCrunch</string>
+    <string>Crunchpad</string>
     <key>CFBundleDisplayName</key>
-    <string>SpeedCrunch</string>
+    <string>Crunchpad</string>
     <key>CFBundleIdentifier</key>
-    <string>org.speedcrunch.mac</string>
+    <string>io.github.jimpayne1.crunchpad</string>
     <key>CFBundleExecutable</key>
-    <string>SpeedCrunch</string>
+    <string>Crunchpad</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundlePackageType</key>
@@ -25,6 +25,6 @@
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSHumanReadableCopyright</key>
-    <string>macOS port © 2026 James Payne. SpeedCrunch © 2004–2026 SpeedCrunch developers. GPL-2.0-or-later.</string>
+    <string>Crunchpad © 2026 James Payne. Based on SpeedCrunch © 2004–2026 SpeedCrunch developers. GPL-2.0-or-later.</string>
 </dict>
 </plist>

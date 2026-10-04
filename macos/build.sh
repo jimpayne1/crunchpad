@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# Builds SpeedCrunch.app: the upstream engine (CMake, QtCore only), the
+# Builds Crunchpad.app: the upstream SpeedCrunch engine (CMake, QtCore only), the
 # SwiftUI front end (SwiftPM), then bundles QtCore and its Homebrew dylibs so
 # the app runs on machines without Homebrew.
 #
-#   macos/build.sh            # release build -> build/SpeedCrunch.app
+#   macos/build.sh            # release build -> build/Crunchpad.app
 #   macos/build.sh --debug    # debug build
 #   macos/build.sh --run      # build and launch
 set -euo pipefail
@@ -29,7 +29,7 @@ if [[ -z "$QT_PREFIX" || ! -d "$QT_PREFIX/lib/QtCore.framework" ]]; then
 fi
 
 BUILD="$ROOT/build"
-APP="$BUILD/SpeedCrunch.app"
+APP="$BUILD/Crunchpad.app"
 VERSION="$(git -C "$ROOT" describe --tags --always 2>/dev/null || echo dev)"
 
 echo "==> Engine (CMake)"
@@ -41,12 +41,12 @@ cmake --build "$BUILD/engine" --target scengine -j"$(sysctl -n hw.ncpu)"
 echo "==> App (SwiftPM)"
 export SC_ENGINE_LIB_DIR="$BUILD/engine" SC_QT_LIB_DIR="$QT_PREFIX/lib"
 swift build --package-path "$HERE/App" -c "$CONFIG"
-BIN="$(swift build --package-path "$HERE/App" -c "$CONFIG" --show-bin-path)/SpeedCrunch"
+BIN="$(swift build --package-path "$HERE/App" -c "$CONFIG" --show-bin-path)/Crunchpad"
 
 echo "==> Bundle"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
-cp "$BIN" "$APP/Contents/MacOS/SpeedCrunch"
+cp "$BIN" "$APP/Contents/MacOS/Crunchpad"
 sed "s/__VERSION__/${VERSION#release-}/g" "$HERE/Resources/Info.plist" > "$APP/Contents/Info.plist"
 
 if [[ ! -f "$BUILD/AppIcon.icns" || "$HERE/Resources/make-icon.swift" -nt "$BUILD/AppIcon.icns" ]]; then
@@ -108,10 +108,10 @@ install_name_tool -add_rpath @loader_path/../.. "$QTFW/Versions/A/QtCore" 2>/dev
 
 # Executable: only look inside the bundle.
 install_name_tool -change "$QT_PREFIX/lib/QtCore.framework/Versions/A/QtCore" \
-    @rpath/QtCore.framework/Versions/A/QtCore "$APP/Contents/MacOS/SpeedCrunch" 2>/dev/null || true
-install_name_tool -delete_rpath "$QT_PREFIX/lib" "$APP/Contents/MacOS/SpeedCrunch" 2>/dev/null || true
+    @rpath/QtCore.framework/Versions/A/QtCore "$APP/Contents/MacOS/Crunchpad" 2>/dev/null || true
+install_name_tool -delete_rpath "$QT_PREFIX/lib" "$APP/Contents/MacOS/Crunchpad" 2>/dev/null || true
 
-if otool -L "$APP/Contents/MacOS/SpeedCrunch" "$FW"/*.dylib "$QTFW/Versions/A/QtCore" | grep -q "/opt/homebrew"; then
+if otool -L "$APP/Contents/MacOS/Crunchpad" "$FW"/*.dylib "$QTFW/Versions/A/QtCore" | grep -q "/opt/homebrew"; then
     echo "warning: bundle still references Homebrew paths" >&2
 fi
 

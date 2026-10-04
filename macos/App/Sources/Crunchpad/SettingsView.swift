@@ -101,7 +101,7 @@ struct QuickCalculatorView: View {
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                 Spacer()
-                Button("Open SpeedCrunch") {
+                Button("Open Crunchpad") {
                     openWindow(id: "main")
                     NSApp.activate(ignoringOtherApps: true)
                 }

@@ -1,7 +1,9 @@
-# SpeedCrunch for macOS
+# Crunchpad
 
-A native SwiftUI front end for [SpeedCrunch](https://github.com/heldercorreia/speedcrunch),
-the high-precision keyboard-driven calculator.
+A native macOS calculator built on the engine of
+[SpeedCrunch](https://github.com/heldercorreia/speedcrunch), the high-precision
+keyboard-driven calculator. Crunchpad is an independent fork and is not the
+official SpeedCrunch Mac build; please report Crunchpad issues here, not upstream.
 
 The math engine is the **unmodified upstream core** (`src/math`, `src/core`),
 compiled against QtCore only, with no Qt Widgets, QtGui or QtHelp. Everything you
@@ -57,7 +59,7 @@ Requires Xcode 16+ (Swift 6) and Homebrew.
 
 ```sh
 brew install qtbase cmake
-macos/build.sh          # -> build/SpeedCrunch.app
+macos/build.sh          # -> build/Crunchpad.app
 macos/build.sh --run    # build and launch
 ```
 
@@ -99,7 +101,7 @@ If upstream adds a new core source file or a `Settings` field, update
 
 ## Copyright & License
 
-macOS port © 2026 James Payne.
-SpeedCrunch © 2004–2026 SpeedCrunch developers.
+Crunchpad © 2026 James Payne.
+Based on SpeedCrunch © 2004–2026 SpeedCrunch developers.
 
 GPL-2.0-or-later, same as SpeedCrunch (see `LICENSE`).

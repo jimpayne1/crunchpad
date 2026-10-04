@@ -10,14 +10,14 @@ let engineLib = Context.environment["SC_ENGINE_LIB_DIR"] ?? root + "/build/engin
 let qtLib = Context.environment["SC_QT_LIB_DIR"] ?? "/opt/homebrew/opt/qtbase/lib"
 
 let package = Package(
-    name: "SpeedCrunch",
+    name: "Crunchpad",
     platforms: [.macOS(.v15)],
     targets: [
         .systemLibrary(name: "CSpeedCrunchEngine", path: "Sources/CSpeedCrunchEngine"),
         .executableTarget(
-            name: "SpeedCrunch",
+            name: "Crunchpad",
             dependencies: ["CSpeedCrunchEngine"],
-            path: "Sources/SpeedCrunch",
+            path: "Sources/Crunchpad",
             linkerSettings: [
                 .unsafeFlags([
                     "-L", engineLib, "-lscengine",
