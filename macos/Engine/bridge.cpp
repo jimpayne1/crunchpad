@@ -10,6 +10,7 @@
 #include "core/settings.h"
 #include "gui/resultlineformatutils.h"
 #include "math/cmath.h"
+#include "math/quantity.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -46,6 +47,17 @@ char* toJson(const QJsonArray& arr)
 QString str(const char* s)
 {
     return s ? QString::fromUtf8(s) : QString();
+}
+
+// The math layer keeps its own copies of a few settings; upstream copies
+// them across whenever settings change (applyEvaluationContext), so must we.
+void applyRuntimeSettings()
+{
+    const Settings* s = Settings::instance();
+    DMath::complexMode = s->complexNumbers;
+    CMath::setImaginaryUnitSymbol(s->imaginaryUnit);
+    setRuntimeUnitNegativeExponentStyle(s->unitNegativeExponentStyle);
+    setRuntimeResultRoundingMode(s->resultRoundingMode);
 }
 
 char* runEvaluation(const char* raw, bool commit)
@@ -116,6 +128,7 @@ extern "C" {
 void sc_init(void)
 {
     Settings::instance();
+    applyRuntimeSettings();
     FunctionRepo::instance();
     Constants::instance();
     evaluator()->initializeBuiltInVariables();
@@ -158,6 +171,8 @@ void sc_apply_settings(const char* json)
         s->hasNumberFormatStyleSetting = true;
         s->applyNumberFormatStyle();
     }
+
+    applyRuntimeSettings();
 
     // The upstream GUI re-seeds built-ins (i/j, angle units) after these
     // settings change; do the same so `i`, `°`, etc. stay consistent.

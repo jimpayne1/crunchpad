@@ -4,6 +4,7 @@
 #include "SpeedCrunchEngine.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <iostream>
 #include <string>
 
@@ -17,6 +18,9 @@ int main(int argc, char** argv)
         sc_free(out);
         return 0;
     }
+    // SC_SETTINGS='{"complexNumbers":false}' exercises sc_apply_settings.
+    if (const char* json = std::getenv("SC_SETTINGS"))
+        sc_apply_settings(json);
     std::string line;
     while (std::getline(std::cin, line)) {
         char* out = sc_evaluate(line.c_str());
