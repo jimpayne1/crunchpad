@@ -3,6 +3,7 @@
 import AppKit
 import Foundation
 import Observation
+import SwiftUI
 
 enum AngleUnit: String, CaseIterable, Identifiable {
     case radian = "r", degree = "d", gradian = "g", turn = "t"
@@ -75,12 +76,24 @@ enum NumberStyle: Int, CaseIterable, Identifiable {
     }
 }
 
+enum Appearance: String, CaseIterable, Identifiable {
+    case dark, system, light
+    var id: String { rawValue }
+    var label: String { rawValue.capitalized }
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .dark: .dark
+        case .light: .light
+        case .system: nil
+        }
+    }
+}
+
 struct HistoryEntry: Identifiable, Codable, Hashable {
     var id = UUID()
     var expression: String
     var interpreted: String
     var result: String?
-    var alternates: [String: String] = [:]
     var kind: String
     var date = Date()
 }
@@ -95,6 +108,16 @@ final class Calculator {
     var input = "" {
         didSet {
             guard input != oldValue else { return }
+            if oldValue.isEmpty, autoAns, Self.autoAnsOperators.contains(input), lastResult != nil {
+                // Defer: an NSTextField mid-keystroke ignores a synchronous
+                // rewrite of its binding, and the next key would clobber it.
+                let op = input
+                Task { @MainActor [weak self] in
+                    // Fast typists may already have added more after `op`.
+                    guard let self, self.input.hasPrefix(op) else { return }
+                    self.input = "ans" + self.input
+                }
+            }
             refreshPreview()
             refreshCompletions()
         }
@@ -103,6 +126,11 @@ final class Calculator {
     private(set) var lastError: String?
     private(set) var completions: [Completion] = []
     var completionIndex = 0
+    /// Typing one of these into an empty editor continues from the last
+    /// result (upstream's "auto ans"), e.g. `+5` becomes `ans+5`.
+    private static let autoAnsOperators: Set<String> = [
+        "+", "-", "−", "*", "×", "·", "/", "÷", "^", "%", "!", "&", "|", "<", ">",
+    ]
     private var recallIndex: Int?
     private var draftBeforeRecall = ""
     /// Bumped whenever the editor should take focus.
@@ -126,7 +154,8 @@ final class Calculator {
     var simplifyExpressions: Bool { didSet { settingsChanged() } }
     var autoCopyResult: Bool { didSet { defaults.set(autoCopyResult, forKey: "autoCopyResult") } }
     var keepLastExpression: Bool { didSet { defaults.set(keepLastExpression, forKey: "keepLastExpression") } }
-    var showKeypad: Bool { didSet { defaults.set(showKeypad, forKey: "showKeypad") } }
+    var autoAns: Bool { didSet { defaults.set(autoAns, forKey: "autoAns") } }
+    var appearance: Appearance { didSet { defaults.set(appearance.rawValue, forKey: "appearance") } }
 
     @ObservationIgnored private let defaults = UserDefaults.standard
     @ObservationIgnored private var restoring = false
@@ -143,7 +172,8 @@ final class Calculator {
         simplifyExpressions = d.object(forKey: "simplifyExpressions") as? Bool ?? true
         autoCopyResult = d.bool(forKey: "autoCopyResult")
         keepLastExpression = d.bool(forKey: "keepLastExpression")
-        showKeypad = d.bool(forKey: "showKeypad")
+        autoAns = d.object(forKey: "autoAns") as? Bool ?? true
+        appearance = Appearance(rawValue: d.string(forKey: "appearance") ?? "") ?? .dark
 
         Engine.start()
         applySettingsToEngine()
@@ -156,8 +186,13 @@ final class Calculator {
 
     func commit() {
         if acceptCompletionIfVisible() { return }
-        let expression = input.trimmingCharacters(in: .whitespaces)
+        var expression = input.trimmingCharacters(in: .whitespaces)
         guard !expression.isEmpty else { return }
+        // Return can beat the deferred visual rewrite in didSet.
+        if autoAns, lastResult != nil, let first = expression.first,
+           Self.autoAnsOperators.contains(String(first)) {
+            expression = "ans" + expression
+        }
 
         let evaluation = Engine.evaluate(expression)
         guard evaluation.ok else {
@@ -171,7 +206,6 @@ final class Calculator {
             expression: expression,
             interpreted: evaluation.interpreted ?? expression,
             result: evaluation.result,
-            alternates: evaluation.alternates ?? [:],
             kind: kind.rawValue)
         history.append(entry)
         lastError = nil
@@ -200,7 +234,6 @@ final class Calculator {
             var entry = old
             entry.interpreted = e.interpreted ?? old.expression
             entry.result = e.result
-            entry.alternates = e.alternates ?? [:]
             entry.kind = kind.rawValue
             return entry
         }
@@ -217,11 +250,6 @@ final class Calculator {
 
     func insertFunction(_ name: String) {
         insert(name + "(")
-    }
-
-    func backspace() {
-        guard !input.isEmpty else { return }
-        input.removeLast()
     }
 
     func clearInput() {

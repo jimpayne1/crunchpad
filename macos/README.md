@@ -15,14 +15,13 @@ see is SwiftUI.
 - Live result preview while you type, plus inline autocompletion (Tab/Return
   to accept, Esc to dismiss)
 - ↑/↓ recall history; double-click a result to insert it
-- Result chips with hex/bin/oct/scientific alternates (click to copy)
+- Type an operator first (`+5`, `*2`) to continue from the last result (auto `ans`)
 - Inspector sidebar: your definitions, built-in functions and physical
   constants, all filterable
-- Optional scientific keypad (⌥⌘K)
 - Menu bar quick calculator, sharing state with the main window
 - Session is restored on launch by replaying the transcript, so variables and
   functions survive restarts
-- Native Settings window, dark mode and keyboard shortcuts
+- Dark by default (System/Light in Settings), native Settings window, keyboard shortcuts
 
 | Shortcut | Action |
 | --- | --- |
@@ -30,7 +29,6 @@ see is SwiftUI.
 | ⇧⌘C | Copy last result |
 | ⌥⌘R / ⌥⌘D | Radians / degrees |
 | ⌘K / ⇧⌘K | Clear history / clear history and definitions |
-| ⌥⌘K | Toggle keypad |
 
 ## Building
 

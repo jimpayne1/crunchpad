@@ -46,23 +46,6 @@ QString str(const char* s)
     return s ? QString::fromUtf8(s) : QString();
 }
 
-QJsonObject alternates(const Quantity& q)
-{
-    QJsonObject out;
-    // Integer-valued real results get programmer-style alternates; anything
-    // else just gets scientific so the sidebar always has something useful.
-    const bool integral = !q.isNan() && q.isReal() && q.isDimensionless()
-        && HMath::frac(q.numericValue().real).isZero();
-    if (integral) {
-        out["hex"] = NumberFormatter::format(q, 'h');
-        out["bin"] = NumberFormatter::format(q, 'b');
-        out["oct"] = NumberFormatter::format(q, 'o');
-    }
-    if (!q.isNan())
-        out["sci"] = NumberFormatter::format(q, 'e');
-    return out;
-}
-
 char* runEvaluation(const char* raw, bool commit)
 {
     Evaluator* ev = evaluator();
@@ -112,7 +95,6 @@ char* runEvaluation(const char* raw, bool commit)
         : Evaluator::formatInterpretedExpressionForDisplay(interpreted, ev);
     if (!result.isNan()) {
         out["result"] = NumberFormatter::format(result);
-        out["alternates"] = alternates(result);
     }
     return toJson(out);
 }

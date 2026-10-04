@@ -14,7 +14,6 @@ struct Evaluation: Decodable, Equatable {
     var expression: String?
     var interpreted: String?
     var result: String?
-    var alternates: [String: String]?
 }
 
 struct BuiltinFunction: Decodable, Identifiable, Hashable {

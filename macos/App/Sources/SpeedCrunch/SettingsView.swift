@@ -10,6 +10,13 @@ struct SettingsView: View {
         @Bindable var calculator = calculator
 
         Form {
+            Section("Appearance") {
+                Picker("Theme", selection: $calculator.appearance) {
+                    ForEach(Appearance.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+            }
+
             Section("Results") {
                 Picker("Format", selection: $calculator.resultFormat) {
                     ForEach(ResultFormat.allCases) { Text($0.label).tag($0) }
@@ -42,6 +49,7 @@ struct SettingsView: View {
             }
 
             Section("Behavior") {
+                Toggle("Operator at start continues from last result (auto ans)", isOn: $calculator.autoAns)
                 Toggle("Copy each result to the clipboard", isOn: $calculator.autoCopyResult)
                 Toggle("Keep expression after evaluating", isOn: $calculator.keepLastExpression)
                 Toggle("Show in menu bar", isOn: $showMenuBarExtra)

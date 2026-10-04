@@ -11,6 +11,7 @@ struct SpeedCrunchApp: App {
         Window("SpeedCrunch", id: "main") {
             ContentView()
                 .environment(calculator)
+                .preferredColorScheme(calculator.appearance.colorScheme)
                 .frame(minWidth: 460, minHeight: 360)
         }
         .defaultSize(width: 760, height: 560)
@@ -19,11 +20,13 @@ struct SpeedCrunchApp: App {
         Settings {
             SettingsView()
                 .environment(calculator)
+                .preferredColorScheme(calculator.appearance.colorScheme)
         }
 
         MenuBarExtra("SpeedCrunch", systemImage: "function", isInserted: $showMenuBarExtra) {
             QuickCalculatorView()
                 .environment(calculator)
+                .preferredColorScheme(calculator.appearance.colorScheme)
         }
         .menuBarExtraStyle(.window)
     }
@@ -63,11 +66,6 @@ struct CalculatorCommands: Commands {
                 .keyboardShortcut("k", modifiers: [.command])
             Button("Clear History and Definitions…") { calculator.clearAll() }
                 .keyboardShortcut("k", modifiers: [.command, .shift])
-        }
-
-        CommandGroup(after: .sidebar) {
-            Toggle("Show Keypad", isOn: $calculator.showKeypad)
-                .keyboardShortcut("k", modifiers: [.command, .option])
         }
     }
 }

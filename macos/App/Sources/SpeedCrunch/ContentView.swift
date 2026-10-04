@@ -13,13 +13,7 @@ struct ContentView: View {
             TranscriptView()
             Divider()
             InputBar()
-            if calculator.showKeypad {
-                Divider()
-                KeypadView()
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
         }
-        .animation(.snappy(duration: 0.2), value: calculator.showKeypad)
         .background(.background)
         .inspector(isPresented: $showInspector) {
             InspectorView()
@@ -28,16 +22,18 @@ struct ContentView: View {
         .navigationTitle("SpeedCrunch")
         .navigationSubtitle("\(calculator.angleUnit.label) · \(calculator.resultFormat.label)")
         .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Picker("Angle", selection: $calculator.angleUnit) {
-                    ForEach([AngleUnit.radian, .degree, .gradian]) { unit in
-                        Text(unit.short).tag(unit)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .help("Angle unit")
-            }
             ToolbarItemGroup(placement: .primaryAction) {
+                Menu {
+                    Picker("Angle Unit", selection: $calculator.angleUnit) {
+                        ForEach(AngleUnit.allCases) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.inline)
+                } label: {
+                    Text(calculator.angleUnit.short)
+                        .font(.system(.caption, design: .monospaced).weight(.semibold))
+                }
+                .help("Angle unit (⌥⌘R radians, ⌥⌘D degrees)")
+
                 Menu {
                     Picker("Result Format", selection: $calculator.resultFormat) {
                         ForEach(ResultFormat.allCases) { Text($0.label).tag($0) }
@@ -52,15 +48,10 @@ struct ContentView: View {
                 }
                 .help("Result format and precision")
 
-                Toggle(isOn: $calculator.showKeypad) {
-                    Label("Keypad", systemImage: "circle.grid.3x3")
-                }
-                .help("Show keypad (⌥⌘K)")
-
                 Button {
                     calculator.clearHistory()
                 } label: {
-                    Label("Clear History", systemImage: "trash")
+                    Label("Clear History", systemImage: "eraser")
                 }
                 .help("Clear history (⌘K)")
                 .disabled(calculator.history.isEmpty)
@@ -130,14 +121,6 @@ struct EntryRow: View {
     let entry: HistoryEntry
     @State private var hovering = false
 
-    private var alternates: [(String, String)] {
-        let order = ["hex", "bin", "oct", "sci"]
-        return order.compactMap { key in
-            guard let value = entry.alternates[key], value != entry.result, value.count <= 72 else { return nil }
-            return (key.uppercased(), value)
-        }
-    }
-
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
@@ -158,13 +141,6 @@ struct EntryRow: View {
                         .foregroundStyle(.tertiary)
                 }
 
-                if !alternates.isEmpty {
-                    HStack(spacing: 6) {
-                        ForEach(alternates, id: \.0) { name, value in
-                            AlternateChip(name: name, value: value)
-                        }
-                    }
-                }
             }
             Spacer(minLength: 0)
             if hovering {
@@ -201,28 +177,6 @@ struct EntryRow: View {
         case "unit": "unit defined"
         default: ""
         }
-    }
-}
-
-private struct AlternateChip: View {
-    @Environment(Calculator.self) private var calculator
-    let name: String
-    let value: String
-
-    var body: some View {
-        Button {
-            calculator.copy(value)
-        } label: {
-            HStack(spacing: 4) {
-                Text(name).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
-                Text(value).font(.system(.caption, design: .monospaced)).lineLimit(1)
-            }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(.quaternary.opacity(0.6), in: Capsule())
-        }
-        .buttonStyle(.plain)
-        .help("Click to copy")
     }
 }
 

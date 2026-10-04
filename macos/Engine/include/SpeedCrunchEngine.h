@@ -17,7 +17,7 @@ void sc_free(char* s);
 
 // Evaluates and commits (assignments, `ans`). Returns
 // {"ok":bool,"error":str,"kind":"value|variable|function|unit|comment|none",
-//  "expression":str,"interpreted":str,"result":str,"alternates":{fmt:str}}
+//  "expression":str,"interpreted":str,"result":str}
 char* sc_evaluate(const char* expr);
 
 // Side-effect free evaluation for the live result preview. Same shape.
