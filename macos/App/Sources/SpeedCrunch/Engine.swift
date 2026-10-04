@@ -1,0 +1,128 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+import CSpeedCrunchEngine
+import Foundation
+
+struct Evaluation: Decodable, Equatable {
+    enum Kind: String, Decodable {
+        case value, variable, function, unit, comment, none
+    }
+
+    var ok: Bool
+    var error: String?
+    var kind: Kind?
+    var expression: String?
+    var interpreted: String?
+    var result: String?
+    var alternates: [String: String]?
+}
+
+struct BuiltinFunction: Decodable, Identifiable, Hashable {
+    var id: String
+    var name: String
+    var usage: String
+    var domain: String
+}
+
+struct PhysicalConstant: Decodable, Identifiable, Hashable {
+    var name: String
+    var value: String
+    var unit: String
+    var domain: String
+    var subdomain: String
+    var id: String { domain + "/" + name }
+}
+
+struct UserVariable: Decodable, Identifiable, Hashable {
+    var id: String
+    var value: String
+    var description: String
+}
+
+struct UserFunction: Decodable, Identifiable, Hashable {
+    var name: String
+    var args: [String]
+    var expression: String
+    var description: String
+    var id: String { name }
+    var signature: String { "\(name)(\(args.joined(separator: ";")))" }
+}
+
+struct UserUnit: Decodable, Identifiable, Hashable {
+    var name: String
+    var expression: String
+    var description: String
+    var id: String { name }
+}
+
+struct Completion: Decodable, Identifiable, Hashable {
+    var text: String
+    var kind: String
+    var detail: String
+    var id: String { kind + ":" + text }
+}
+
+struct EngineSettings: Encodable {
+    var angleUnit: String
+    var resultFormat: String
+    var precision: Int
+    var complexNumbers: Bool
+    var complexForm: String
+    var imaginaryUnit: String
+    var numberFormatStyle: Int
+    var simplify: Bool
+}
+
+/// Thin Swift face over the C bridge. The engine keeps global state and is
+/// not thread-safe, so everything is pinned to the main actor.
+@MainActor
+enum Engine {
+    private static var initialized = false
+
+    static func start() {
+        guard !initialized else { return }
+        sc_init()
+        initialized = true
+    }
+
+    static func evaluate(_ expression: String) -> Evaluation {
+        decode(sc_evaluate(expression)) ?? Evaluation(ok: false, error: "Engine error")
+    }
+
+    static func preview(_ expression: String) -> Evaluation {
+        decode(sc_preview(expression)) ?? Evaluation(ok: false)
+    }
+
+    static func apply(_ settings: EngineSettings) {
+        guard let data = try? JSONEncoder().encode(settings),
+              let json = String(data: data, encoding: .utf8) else { return }
+        sc_apply_settings(json)
+    }
+
+    static func builtinFunctions() -> [BuiltinFunction] { decode(sc_builtin_functions()) ?? [] }
+    static func constants() -> [PhysicalConstant] { decode(sc_constants()) ?? [] }
+    static func userVariables() -> [UserVariable] { decode(sc_user_variables()) ?? [] }
+    static func userFunctions() -> [UserFunction] { decode(sc_user_functions()) ?? [] }
+    static func userUnits() -> [UserUnit] { decode(sc_user_units()) ?? [] }
+    static func completions(for prefix: String) -> [Completion] { decode(sc_completions(prefix)) ?? [] }
+
+    static func unsetVariable(_ id: String) { sc_unset_variable(id) }
+    static func unsetFunction(_ name: String) { sc_unset_function(name) }
+    static func unsetUnit(_ name: String) { sc_unset_unit(name) }
+    static func reset() { sc_reset() }
+
+    private static func decode<T: Decodable>(_ pointer: UnsafeMutablePointer<CChar>?) -> T? {
+        guard let pointer else { return nil }
+        defer { sc_free(pointer) }
+        return try? JSONDecoder().decode(T.self, from: Data(bytes: pointer, count: strlen(pointer)))
+    }
+}
+
+extension String {
+    /// Engine messages carry `<b>…</b>` markup meant for Qt rich text.
+    var engineMarkupAsAttributed: AttributedString {
+        let markdown = replacingOccurrences(of: "<b>", with: "**")
+            .replacingOccurrences(of: "</b>", with: "**")
+        return (try? AttributedString(markdown: markdown)) ?? AttributedString(self)
+    }
+}

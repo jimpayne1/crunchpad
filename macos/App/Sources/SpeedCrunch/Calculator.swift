@@ -1,0 +1,440 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+import AppKit
+import Foundation
+import Observation
+
+enum AngleUnit: String, CaseIterable, Identifiable {
+    case radian = "r", degree = "d", gradian = "g", turn = "t"
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .radian: "Radians"
+        case .degree: "Degrees"
+        case .gradian: "Gradians"
+        case .turn: "Turns"
+        }
+    }
+    var short: String {
+        switch self {
+        case .radian: "RAD"
+        case .degree: "DEG"
+        case .gradian: "GRAD"
+        case .turn: "TURN"
+        }
+    }
+}
+
+enum ResultFormat: String, CaseIterable, Identifiable {
+    case general = "g", fixed = "f", scientific = "e", engineering = "n"
+    case sexagesimal = "s", hexadecimal = "h", octal = "o", binary = "b"
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .general: "General"
+        case .fixed: "Fixed Decimal"
+        case .scientific: "Scientific"
+        case .engineering: "Engineering"
+        case .sexagesimal: "Sexagesimal"
+        case .hexadecimal: "Hexadecimal"
+        case .octal: "Octal"
+        case .binary: "Binary"
+        }
+    }
+}
+
+enum ComplexForm: String, CaseIterable, Identifiable {
+    case rectangular = "r", exponential = "e", trigonometric = "t", cis = "c", phasor = "p"
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .rectangular: "Rectangular (a+bi)"
+        case .exponential: "Exponential (r·e^iθ)"
+        case .trigonometric: "Trigonometric"
+        case .cis: "cis"
+        case .phasor: "Phasor (r∠θ)"
+        }
+    }
+}
+
+enum NumberStyle: Int, CaseIterable, Identifiable {
+    case plainDot = 1, plainComma = 2, commaDot = 5, dotComma = 7
+    case spaceDot = 9, spaceComma = 10, underscoreDot = 11, indian = 15
+    var id: Int { rawValue }
+    var label: String {
+        switch self {
+        case .plainDot: "1234567.89"
+        case .plainComma: "1234567,89"
+        case .commaDot: "1,234,567.89"
+        case .dotComma: "1.234.567,89"
+        case .spaceDot: "1 234 567.89"
+        case .spaceComma: "1 234 567,89"
+        case .underscoreDot: "1_234_567.89"
+        case .indian: "12,34,567.89"
+        }
+    }
+}
+
+struct HistoryEntry: Identifiable, Codable, Hashable {
+    var id = UUID()
+    var expression: String
+    var interpreted: String
+    var result: String?
+    var alternates: [String: String] = [:]
+    var kind: String
+    var date = Date()
+}
+
+@MainActor
+@Observable
+final class Calculator {
+    static let shared = Calculator()
+
+    // Transcript and editor state.
+    private(set) var history: [HistoryEntry] = []
+    var input = "" {
+        didSet {
+            guard input != oldValue else { return }
+            refreshPreview()
+            refreshCompletions()
+        }
+    }
+    private(set) var preview: Evaluation?
+    private(set) var lastError: String?
+    private(set) var completions: [Completion] = []
+    var completionIndex = 0
+    private var recallIndex: Int?
+    private var draftBeforeRecall = ""
+    /// Bumped whenever the editor should take focus.
+    private(set) var focusRequest = 0
+
+    // Symbol tables surfaced in the inspector.
+    private(set) var variables: [UserVariable] = []
+    private(set) var userFunctions: [UserFunction] = []
+    private(set) var userUnits: [UserUnit] = []
+    private(set) var builtinFunctions: [BuiltinFunction] = []
+    private(set) var constants: [PhysicalConstant] = []
+
+    // Settings (persisted in UserDefaults).
+    var angleUnit: AngleUnit { didSet { settingsChanged() } }
+    var resultFormat: ResultFormat { didSet { settingsChanged() } }
+    var precision: Int { didSet { settingsChanged() } }
+    var complexNumbers: Bool { didSet { settingsChanged() } }
+    var complexForm: ComplexForm { didSet { settingsChanged() } }
+    var imaginaryUnitJ: Bool { didSet { settingsChanged() } }
+    var numberStyle: NumberStyle { didSet { settingsChanged() } }
+    var simplifyExpressions: Bool { didSet { settingsChanged() } }
+    var autoCopyResult: Bool { didSet { defaults.set(autoCopyResult, forKey: "autoCopyResult") } }
+    var keepLastExpression: Bool { didSet { defaults.set(keepLastExpression, forKey: "keepLastExpression") } }
+    var showKeypad: Bool { didSet { defaults.set(showKeypad, forKey: "showKeypad") } }
+
+    @ObservationIgnored private let defaults = UserDefaults.standard
+    @ObservationIgnored private var restoring = false
+
+    private init() {
+        let d = UserDefaults.standard
+        angleUnit = AngleUnit(rawValue: d.string(forKey: "angleUnit") ?? "") ?? .radian
+        resultFormat = ResultFormat(rawValue: d.string(forKey: "resultFormat") ?? "") ?? .general
+        precision = d.object(forKey: "precision") as? Int ?? -1
+        complexNumbers = d.object(forKey: "complexNumbers") as? Bool ?? true
+        complexForm = ComplexForm(rawValue: d.string(forKey: "complexForm") ?? "") ?? .rectangular
+        imaginaryUnitJ = d.bool(forKey: "imaginaryUnitJ")
+        numberStyle = NumberStyle(rawValue: d.integer(forKey: "numberStyle")) ?? .plainDot
+        simplifyExpressions = d.object(forKey: "simplifyExpressions") as? Bool ?? true
+        autoCopyResult = d.bool(forKey: "autoCopyResult")
+        keepLastExpression = d.bool(forKey: "keepLastExpression")
+        showKeypad = d.bool(forKey: "showKeypad")
+
+        Engine.start()
+        applySettingsToEngine()
+        builtinFunctions = Engine.builtinFunctions()
+        constants = Engine.constants()
+        restoreSession()
+    }
+
+    // MARK: Evaluation
+
+    func commit() {
+        if acceptCompletionIfVisible() { return }
+        let expression = input.trimmingCharacters(in: .whitespaces)
+        guard !expression.isEmpty else { return }
+
+        let evaluation = Engine.evaluate(expression)
+        guard evaluation.ok else {
+            lastError = evaluation.error ?? "Error"
+            NSSound.beep()
+            return
+        }
+        guard let kind = evaluation.kind, kind != .none else { return }
+
+        let entry = HistoryEntry(
+            expression: expression,
+            interpreted: evaluation.interpreted ?? expression,
+            result: evaluation.result,
+            alternates: evaluation.alternates ?? [:],
+            kind: kind.rawValue)
+        history.append(entry)
+        lastError = nil
+        recallIndex = nil
+        refreshSymbols()
+        saveSession()
+
+        if autoCopyResult, let result = entry.result { copy(result) }
+        if !keepLastExpression { input = "" }
+        preview = nil
+    }
+
+    private func refreshPreview() {
+        lastError = nil
+        let trimmed = input.trimmingCharacters(in: .whitespaces)
+        preview = trimmed.isEmpty ? nil : Engine.preview(trimmed)
+    }
+
+    /// Re-run the whole transcript, e.g. after the angle unit changes, so
+    /// displayed results always match the current settings.
+    func recalculateAll() {
+        Engine.reset()
+        history = history.compactMap { old in
+            let e = Engine.evaluate(old.expression)
+            guard e.ok, let kind = e.kind, kind != .none else { return nil }
+            var entry = old
+            entry.interpreted = e.interpreted ?? old.expression
+            entry.result = e.result
+            entry.alternates = e.alternates ?? [:]
+            entry.kind = kind.rawValue
+            return entry
+        }
+        refreshSymbols()
+        refreshPreview()
+    }
+
+    // MARK: Editing helpers
+
+    func insert(_ text: String) {
+        input += text
+        requestFocus()
+    }
+
+    func insertFunction(_ name: String) {
+        insert(name + "(")
+    }
+
+    func backspace() {
+        guard !input.isEmpty else { return }
+        input.removeLast()
+    }
+
+    func clearInput() {
+        input = ""
+        recallIndex = nil
+    }
+
+    func requestFocus() { focusRequest &+= 1 }
+
+    func use(_ entry: HistoryEntry) {
+        input = entry.expression
+        requestFocus()
+    }
+
+    func remove(_ entry: HistoryEntry) {
+        history.removeAll { $0.id == entry.id }
+        recalculateAll()
+        saveSession()
+    }
+
+    func clearHistory() {
+        history.removeAll()
+        saveSession()
+    }
+
+    func clearAll() {
+        history.removeAll()
+        Engine.reset()
+        refreshSymbols()
+        refreshPreview()
+        saveSession()
+    }
+
+    func deleteVariable(_ id: String) {
+        Engine.unsetVariable(id)
+        refreshSymbols()
+    }
+
+    func deleteFunction(_ name: String) {
+        Engine.unsetFunction(name)
+        refreshSymbols()
+    }
+
+    func deleteUnit(_ name: String) {
+        Engine.unsetUnit(name)
+        refreshSymbols()
+    }
+
+    var lastResult: String? { history.last(where: { $0.result != nil })?.result }
+
+    func copyLastResult() {
+        if let lastResult { copy(lastResult) }
+    }
+
+    func copy(_ string: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(string, forType: .string)
+    }
+
+    // MARK: History recall (↑/↓)
+
+    func recallPrevious() -> Bool {
+        if !completions.isEmpty {
+            completionIndex = max(0, completionIndex - 1)
+            return true
+        }
+        let expressions = history.map(\.expression)
+        guard !expressions.isEmpty else { return false }
+        if recallIndex == nil { draftBeforeRecall = input }
+        let next = max(0, (recallIndex ?? expressions.count) - 1)
+        recallIndex = next
+        setInputSilently(expressions[next])
+        return true
+    }
+
+    func recallNext() -> Bool {
+        if !completions.isEmpty {
+            completionIndex = min(completions.count - 1, completionIndex + 1)
+            return true
+        }
+        guard let index = recallIndex else { return false }
+        let expressions = history.map(\.expression)
+        if index + 1 < expressions.count {
+            recallIndex = index + 1
+            setInputSilently(expressions[index + 1])
+        } else {
+            recallIndex = nil
+            setInputSilently(draftBeforeRecall)
+        }
+        return true
+    }
+
+    private func setInputSilently(_ text: String) {
+        input = text
+        completions = []
+    }
+
+    // MARK: Completion
+
+    /// The identifier being typed at the end of the input, if any.
+    private var trailingIdentifier: Substring {
+        let tail = input.reversed().prefix { $0.isLetter || $0.isNumber || $0 == "_" }
+        let ident = input.suffix(tail.count)
+        guard let first = ident.first, first.isLetter || first == "_" else { return "" }
+        return ident
+    }
+
+    private func refreshCompletions() {
+        let prefix = trailingIdentifier
+        guard prefix.count >= 1 else {
+            completions = []
+            return
+        }
+        // Bracketed unit names (`[metre]`) complete against units only.
+        let inUnitBracket = input.dropLast(prefix.count).last == "["
+        var found = Engine.completions(for: String(prefix))
+            .filter { inUnitBracket ? $0.kind == "unit" : $0.kind != "unit" }
+        found.sort { lhs, rhs in
+            lhs.text.count != rhs.text.count ? lhs.text.count < rhs.text.count : lhs.text < rhs.text
+        }
+        completions = Array(found.prefix(8))
+        completionIndex = 0
+    }
+
+    func dismissCompletions() -> Bool {
+        guard !completions.isEmpty else { return false }
+        completions = []
+        return true
+    }
+
+    @discardableResult
+    func acceptCompletionIfVisible() -> Bool {
+        guard completions.indices.contains(completionIndex) else { return false }
+        accept(completions[completionIndex])
+        return true
+    }
+
+    func accept(_ completion: Completion) {
+        let prefix = trailingIdentifier
+        var text = String(input.dropLast(prefix.count)) + completion.text
+        let isCallable = completion.kind == "function" || completion.kind == "userFunction"
+        if isCallable { text += "(" }
+        if completion.kind == "unit", input.dropLast(prefix.count).last == "[" { text += "]" }
+        input = text
+        completions = []
+        requestFocus()
+    }
+
+    // MARK: Settings
+
+    var engineSettings: EngineSettings {
+        EngineSettings(
+            angleUnit: angleUnit.rawValue,
+            resultFormat: resultFormat.rawValue,
+            precision: precision,
+            complexNumbers: complexNumbers,
+            complexForm: complexForm.rawValue,
+            imaginaryUnit: imaginaryUnitJ ? "j" : "i",
+            numberFormatStyle: numberStyle.rawValue,
+            simplify: simplifyExpressions)
+    }
+
+    private func applySettingsToEngine() {
+        Engine.apply(engineSettings)
+    }
+
+    private func settingsChanged() {
+        defaults.set(angleUnit.rawValue, forKey: "angleUnit")
+        defaults.set(resultFormat.rawValue, forKey: "resultFormat")
+        defaults.set(precision, forKey: "precision")
+        defaults.set(complexNumbers, forKey: "complexNumbers")
+        defaults.set(complexForm.rawValue, forKey: "complexForm")
+        defaults.set(imaginaryUnitJ, forKey: "imaginaryUnitJ")
+        defaults.set(numberStyle.rawValue, forKey: "numberStyle")
+        defaults.set(simplifyExpressions, forKey: "simplifyExpressions")
+        applySettingsToEngine()
+        recalculateAll()
+        saveSession()
+    }
+
+    // MARK: Persistence
+
+    private var sessionURL: URL {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("SpeedCrunch", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("session.json")
+    }
+
+    private func saveSession() {
+        guard !restoring else { return }
+        if let data = try? JSONEncoder().encode(history) {
+            try? data.write(to: sessionURL, options: .atomic)
+        }
+    }
+
+    /// Replays the saved transcript so variables, user functions and `ans`
+    /// come back exactly as they were.
+    private func restoreSession() {
+        restoring = true
+        defer { restoring = false }
+        guard let data = try? Data(contentsOf: sessionURL),
+              let saved = try? JSONDecoder().decode([HistoryEntry].self, from: data) else {
+            refreshSymbols()
+            return
+        }
+        history = saved
+        recalculateAll()
+    }
+
+    private func refreshSymbols() {
+        variables = Engine.userVariables()
+        userFunctions = Engine.userFunctions()
+        userUnits = Engine.userUnits()
+    }
+}

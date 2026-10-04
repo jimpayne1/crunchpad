@@ -13,3 +13,7 @@ src/tests/moc_*
 src/tests/Makefile
 src/tests/testevaluator.app
 Testing/
+
+# macOS fork
+macos/App/.build/
+macos/App/.swiftpm/

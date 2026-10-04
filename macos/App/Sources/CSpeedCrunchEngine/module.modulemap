@@ -1,0 +1,4 @@
+module CSpeedCrunchEngine [system] {
+    header "../../../Engine/include/SpeedCrunchEngine.h"
+    export *
+}
