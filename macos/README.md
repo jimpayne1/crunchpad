@@ -16,7 +16,8 @@ see is SwiftUI.
   hex/oct/bin input, and the full built-in function and constant library
 - Live result preview while you type, plus inline autocompletion (Tab/Return
   to accept, Esc to dismiss)
-- ↑/↓ recall history; double-click a result to insert it
+- ↑/↓ recall history; double-click a result to insert it, or an expression to
+  edit it again
 - Type an operator first (`+5`, `*2`) to continue from the last result (auto `ans`)
 - Inspector (⌘1–⌘8): formula book, constants, functions, variables, user
   functions, user units, history and a 64-bit bit field
@@ -76,8 +77,8 @@ macos/build.sh --run    # build and launch
 
 `build.sh` builds the engine with CMake, the app with SwiftPM, and copies
 QtCore plus its dylibs (ICU, glib, …) into `Contents/Frameworks`, relinked to
-`@rpath`. The result runs without Homebrew installed. It is ad-hoc signed;
-for distribution, sign with a Developer ID and notarize.
+`@rpath`. The result runs without Homebrew installed. Local builds are ad hoc
+signed; releases are signed and notarized as described below.
 
 ### Releases
 
@@ -111,12 +112,17 @@ macos/
     cli.cpp            sccli smoke-test REPL
   App/                 SwiftPM package (SwiftUI app)
   Resources/           Info.plist, icon generator
-  build.sh
+  build.sh             build and bundle Crunchpad.app
+  release.sh           sign, notarize, DMG, GitHub release, cask bump
+  VERSION              version CI releases when it changes
+.github/workflows/
+  crunchpad.yml        CI build and release
 ```
 
 ## Tracking upstream
 
-The fork only adds `macos/`, so upstream merges should apply cleanly:
+The fork only adds `macos/`, `.github/` and a banner at the top of the root
+`README.md`, so upstream merges should apply cleanly:
 
 ```sh
 git fetch upstream && git merge upstream/main

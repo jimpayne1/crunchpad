@@ -26,7 +26,7 @@ char* sc_preview(const char* expr);
 
 // {"angleUnit":"r|d|g|t|v","resultFormat":"g|f|e|n|s|h|o|b","precision":int,
 //  "complexNumbers":bool,"complexForm":"r|e|t|c|p","imaginaryUnit":"i|j",
-//  "numberFormatStyle":int,"secondaryFormat":"" | fmt}
+//  "numberFormatStyle":int,"simplify":bool}
 void sc_apply_settings(const char* json);
 
 char* sc_builtin_functions(void);   // [{"id","name","usage","domain"}]

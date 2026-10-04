@@ -97,6 +97,11 @@ if [[ "$PUBLISH" == "--publish" ]]; then
         --notes "Notarized build for macOS 15 and later (Apple silicon). Drag Crunchpad to Applications, or: brew install --cask jimpayne1/tap/crunchpad"
 
     echo "==> Bump Homebrew cask"
+    if [[ -n "${CI:-}" && -z "${TAP_GITHUB_TOKEN:-}" ]]; then
+        echo "::warning::TAP_GITHUB_TOKEN is not set; bump the cask in $TAP_REPO by hand."
+        echo "Done: $DMG"
+        exit 0
+    fi
     SHA="$(shasum -a 256 "$DMG" | cut -d' ' -f1)"
     MIN_OS="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$APP/Contents/Info.plist")"
     case "${MIN_OS%%.*}" in
