@@ -139,10 +139,14 @@ struct TranscriptView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(calculator.history) { entry in
-                    EntryRow(entry: entry)
-                    Divider().opacity(0.4)
+                    VStack(spacing: 0) {
+                        EntryRow(entry: entry)
+                        Divider().opacity(0.4)
+                    }
+                    .id(entry.id)
                 }
             }
+            .scrollTargetLayout()
         }
         .scrollPosition($position)
         .defaultScrollAnchor(.bottom)
@@ -150,8 +154,14 @@ struct TranscriptView: View {
         .overlay {
             if calculator.history.isEmpty { EmptyTranscript() }
         }
-        .onChange(of: calculator.history.count) {
-            withAnimation(.snappy) { position.scrollTo(edge: .bottom) }
+        .onChange(of: calculator.history.last?.id) { _, id in
+            guard let id else { return }
+            // Scrolling to the edge in this same update targets the old
+            // content height (the new row isn't laid out yet), stopping
+            // short. Scroll to the new row itself, after layout.
+            Task { @MainActor in
+                withAnimation(.snappy) { position.scrollTo(id: id, anchor: .bottom) }
+            }
         }
         .onChange(of: calculator.scrollRequest?.serial) {
             guard let command = calculator.scrollRequest?.command else { return }
