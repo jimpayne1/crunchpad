@@ -5,6 +5,12 @@ GitHub fork of heldercorreia/speedcrunch; everything Crunchpad-specific lives in
 `macos/` and `.github/` (see `macos/README.md`). Keep upstream files untouched so
 `git merge upstream/main` stays clean.
 
+Fixes to upstream code go on a branch cut from `upstream/main`, are sent
+upstream as a PR (Jim's go-ahead first, since it posts under his account),
+and are merged into Crunchpad's `main` from that same branch. Upstream's
+test suites (`src/tests`) need the full Qt (`brew install qtbase` has
+Widgets); note `testevaluator` runs with complex mode off, unlike the app.
+
 ## Releasing
 
 1. Decide the version with Jim; it's a deliberate choice each time.
