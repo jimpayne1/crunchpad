@@ -155,7 +155,8 @@ final class Calculator {
                 Task { @MainActor [weak self] in
                     // Fast typists may already have added more after `op`.
                     guard let self, self.input.hasPrefix(op) else { return }
-                    self.input = "ans" + self.input
+                    let caret = (self.selectedRange?.upperBound ?? self.input.utf16.count) + 3
+                    self.setInput("ans" + self.input, caret: caret)
                 }
             }
             refreshPreview()
@@ -306,8 +307,34 @@ final class Calculator {
 
     // MARK: Editing helpers
 
+    /// Replaces the expression and places the caret (UTF-16 offset; default
+    /// end). Every programmatic edit goes through here: a SwiftUI TextField
+    /// otherwise keeps the old caret offset, e.g. `+` → `a|ns+`.
+    func setInput(_ text: String, caret: Int? = nil) {
+        input = text
+        let offset = min(max(0, caret ?? input.utf16.count), input.utf16.count)
+        selection = TextSelection(insertionPoint: String.Index(utf16Offset: offset, in: input))
+    }
+
+    /// Current selection as UTF-16 offsets, clamped to the expression.
+    private var selectedRange: Range<Int>? {
+        guard case let .selection(range)? = selection?.indices else { return nil }
+        let count = input.utf16.count
+        let lower = min(range.lowerBound.utf16Offset(in: input), count)
+        let upper = min(range.upperBound.utf16Offset(in: input), count)
+        return lower <= upper ? lower..<upper : nil
+    }
+
+    /// Inserts at the caret (replacing any selection), like upstream.
     func insert(_ text: String) {
-        input += text
+        if let range = selectedRange {
+            let utf16 = Array(input.utf16)
+            let before = String(decoding: utf16[..<range.lowerBound], as: UTF16.self)
+            let after = String(decoding: utf16[range.upperBound...], as: UTF16.self)
+            setInput(before + text + after, caret: range.lowerBound + text.utf16.count)
+        } else {
+            setInput(input + text)
+        }
         requestFocus()
     }
 
@@ -316,19 +343,21 @@ final class Calculator {
     }
 
     func clearInput() {
-        input = ""
+        setInput("")
         recallIndex = nil
     }
 
     /// ⌘( / ⌘): wrap the selection, or the whole expression, in parentheses.
     func wrapInParentheses() {
-        if case let .selection(range)? = selection?.indices, !range.isEmpty,
-           range.lowerBound >= input.startIndex, range.upperBound <= input.endIndex {
-            input.replaceSubrange(range, with: "(" + input[range] + ")")
+        if let range = selectedRange, !range.isEmpty {
+            let utf16 = Array(input.utf16)
+            let before = String(decoding: utf16[..<range.lowerBound], as: UTF16.self)
+            let inner = String(decoding: utf16[range], as: UTF16.self)
+            let after = String(decoding: utf16[range.upperBound...], as: UTF16.self)
+            setInput(before + "(" + inner + ")" + after, caret: range.upperBound + 2)
         } else if !input.isEmpty {
-            input = "(" + input + ")"
+            setInput("(" + input + ")")
         }
-        selection = TextSelection(insertionPoint: input.endIndex)
         requestFocus()
     }
 
@@ -417,14 +446,14 @@ final class Calculator {
     /// Like upstream, editing bits writes the new value into the editor as hex.
     func setBits(_ value: UInt64) {
         bitValue = value
-        input = "0x" + String(value, radix: 16, uppercase: true)
+        setInput("0x" + String(value, radix: 16, uppercase: true))
         requestFocus()
     }
 
     func requestFocus() { focusRequest &+= 1 }
 
     func use(_ entry: HistoryEntry) {
-        input = entry.expression
+        setInput(entry.expression)
         requestFocus()
     }
 
@@ -507,7 +536,7 @@ final class Calculator {
     }
 
     private func setInputSilently(_ text: String) {
-        input = text
+        setInput(text)
         completions = []
     }
 
@@ -563,7 +592,7 @@ final class Calculator {
         let isCallable = completion.kind == "function" || completion.kind == "userFunction"
         if isCallable { text += "(" }
         if completion.kind == "unit", input.dropLast(prefix.count).last == "[" { text += "]" }
-        input = text
+        setInput(text)
         completions = []
         requestFocus()
     }

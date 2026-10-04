@@ -302,7 +302,7 @@ private struct FormulaBookView: View {
 
     var body: some View {
         BookWebView(dark: colorScheme == .dark) { formula in
-            calculator.input = formula
+            calculator.setInput(formula)
             calculator.requestFocus()
         }
     }
