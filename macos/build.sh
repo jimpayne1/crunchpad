@@ -8,6 +8,10 @@
 #   macos/build.sh            # release build -> build/Crunchpad.app
 #   macos/build.sh --debug    # debug build
 #   macos/build.sh --run      # build and launch
+#
+# Signing is ad hoc unless SIGN_IDENTITY names a certificate (release.sh
+# passes the Developer ID one), which also enables the hardened runtime.
+# CRUNCHPAD_VERSION overrides the version taken from the latest v* tag.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -30,7 +34,10 @@ fi
 
 BUILD="$ROOT/build"
 APP="$BUILD/Crunchpad.app"
-VERSION="$(git -C "$ROOT" describe --tags --always 2>/dev/null || echo dev)"
+VERSION="${CRUNCHPAD_VERSION:-$(git -C "$ROOT" describe --tags --match 'v[0-9]*' --abbrev=0 2>/dev/null || echo v0.0.0)}"
+VERSION="${VERSION#v}"
+BUILD_NUMBER="$(git -C "$ROOT" rev-list --count HEAD 2>/dev/null || echo 1)"
+SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 
 echo "==> Engine (CMake)"
 cmake -S "$HERE/Engine" -B "$BUILD/engine" -G "Unix Makefiles" \
@@ -47,7 +54,8 @@ echo "==> Bundle"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 cp "$BIN" "$APP/Contents/MacOS/Crunchpad"
-sed "s/__VERSION__/${VERSION#release-}/g" "$HERE/Resources/Info.plist" > "$APP/Contents/Info.plist"
+sed -e "s/__VERSION__/$VERSION/g" -e "s/__BUILD__/$BUILD_NUMBER/g" \
+    "$HERE/Resources/Info.plist" > "$APP/Contents/Info.plist"
 
 if [[ ! -f "$BUILD/AppIcon.icns" || "$HERE/Resources/make-icon.swift" -nt "$BUILD/AppIcon.icns" ]]; then
     swift "$HERE/Resources/make-icon.swift" "$BUILD/AppIcon.iconset"
@@ -115,11 +123,21 @@ if otool -L "$APP/Contents/MacOS/Crunchpad" "$FW"/*.dylib "$QTFW/Versions/A/QtCo
     echo "warning: bundle still references Homebrew paths" >&2
 fi
 
-echo "==> Sign (ad hoc)"
-find "$FW" -name "*.dylib" -exec codesign --force --sign - {} \; 2>/dev/null
-codesign --force --sign - "$QTFW" 2>/dev/null
-codesign --force --sign - "$APP"
+if [[ "$SIGN_IDENTITY" == "-" ]]; then
+    echo "==> Sign (ad hoc)"
+    SIGN_FLAGS=(--force --sign -)
+else
+    echo "==> Sign ($SIGN_IDENTITY, hardened runtime)"
+    SIGN_FLAGS=(--force --sign "$SIGN_IDENTITY" --options runtime --timestamp)
+fi
+# Inside out: dylibs, then the framework, then the app.
+find "$FW" -name "*.dylib" -print0 | while IFS= read -r -d '' lib; do
+    codesign "${SIGN_FLAGS[@]}" "$lib"
+done
+codesign "${SIGN_FLAGS[@]}" "$QTFW"
+codesign "${SIGN_FLAGS[@]}" "$APP"
+codesign --verify --strict "$APP"
 
-echo "Built $APP ($(du -sh "$APP" | cut -f1))"
+echo "Built $APP $VERSION ($BUILD_NUMBER), $(du -sh "$APP" | cut -f1)"
 [[ $RUN == 1 ]] && open "$APP"
 exit 0

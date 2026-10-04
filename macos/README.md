@@ -68,6 +68,14 @@ QtCore plus its dylibs (ICU, glib, …) into `Contents/Frameworks`, relinked to
 `@rpath`. The result runs without Homebrew installed. It is ad-hoc signed;
 for distribution, sign with a Developer ID and notarize.
 
+### Releases
+
+`macos/release.sh 1.0.0` builds a Developer ID-signed, notarized and stapled
+`build/Crunchpad-1.0.0.dmg`; add `--publish` to tag `v1.0.0` and attach the
+DMG to a GitHub release. The script header lists the one-time setup
+(Developer ID certificate and stored notary credentials). Releases are
+Apple silicon only, because Homebrew's Qt and ICU are arm64.
+
 For engine-only hacking, `build/engine/sccli` is a JSON REPL over the bridge
 (`cmake --build build/engine --target sccli`).
 
