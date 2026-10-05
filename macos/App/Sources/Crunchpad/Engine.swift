@@ -106,7 +106,15 @@ enum Engine {
         sc_apply_settings(json)
     }
 
-    static func builtinFunctions() -> [BuiltinFunction] { decode(sc_builtin_functions()) ?? [] }
+    static func builtinFunctions() -> [BuiltinFunction] {
+        let functions: [BuiltinFunction] = decode(sc_builtin_functions()) ?? []
+        return functions.map { f in
+            var f = f
+            f.name = f.name.plainTextFromQtRichText
+            f.usage = f.usage.plainTextFromQtRichText
+            return f
+        }
+    }
     static func constants() -> [PhysicalConstant] { decode(sc_constants()) ?? [] }
     static func userVariables() -> [UserVariable] { decode(sc_user_variables()) ?? [] }
     static func userFunctions() -> [UserFunction] { decode(sc_user_functions()) ?? [] }
@@ -132,6 +140,26 @@ enum Engine {
 }
 
 extension String {
+    /// Function usages are Qt rich text (`x<sub>1</sub>`). Subscripts become
+    /// Unicode subscript characters and any other tags are dropped.
+    var plainTextFromQtRichText: String {
+        guard contains("<") else { return self }
+        let subscripts: [Character: Character] = [
+            "0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄",
+            "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉",
+            "+": "₊", "-": "₋", "=": "₌", "(": "₍", ")": "₎",
+            "a": "ₐ", "e": "ₑ", "i": "ᵢ", "j": "ⱼ", "k": "ₖ", "n": "ₙ", "x": "ₓ",
+        ]
+        var text = self
+        while let open = text.range(of: "<sub>"),
+              let close = text.range(of: "</sub>", range: open.upperBound..<text.endIndex) {
+            let inner = text[open.upperBound..<close.lowerBound]
+            text.replaceSubrange(open.lowerBound..<close.upperBound,
+                                 with: String(inner.map { subscripts[$0] ?? $0 }))
+        }
+        return text.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+    }
+
     /// Engine messages carry `<b>…</b>` markup meant for Qt rich text.
     var engineMarkupAsAttributed: AttributedString {
         let markdown = replacingOccurrences(of: "<b>", with: "**")
