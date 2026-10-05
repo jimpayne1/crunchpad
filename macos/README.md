@@ -121,8 +121,9 @@ macos/
 
 ## Tracking upstream
 
-The fork only adds `macos/`, `.github/`, `CLAUDE.md` and a banner at the top of the root
-`README.md`, so upstream merges should apply cleanly:
+The fork only adds `macos/`, `.github/` (CI and the repository's front-page
+README) and `CLAUDE.md`, leaving upstream's files untouched, so upstream merges
+apply cleanly:
 
 ```sh
 git fetch upstream && git merge upstream/main

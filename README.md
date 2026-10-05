@@ -1,12 +1,4 @@
 # SpeedCrunch
-
-> **Crunchpad:** this fork adds Crunchpad, a native SwiftUI Mac calculator built
-> on the SpeedCrunch engine. Install with `brew install --cask jimpayne1/tap/crunchpad`
-> or grab the DMG from [Releases](https://github.com/jimpayne1/crunchpad/releases);
-> see [`macos/README.md`](macos/README.md) to build it.
-> Crunchpad © 2026 James Payne. Not the official SpeedCrunch Mac build.
-> GPL-2.0-or-later.
-
 SpeedCrunch is a high-precision scientific calculator.
 It features a syntax-highlighted scrollable display and is designed to be fully used via keyboard. Some distinctive
 features are auto-completion of functions and variables, a formula book, and quick
