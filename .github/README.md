@@ -2,6 +2,8 @@
 
 **A native Mac calculator with SpeedCrunch's high-precision engine.**
 
+![Crunchpad in dark mode, with the Functions panel open](https://github.com/jimpayne1/crunchpad/raw/main/.github/screenshot.png)
+
 Type `sqrt(2) * pi`, `10[metre] -> [foot]`, or `f(x) = x^2 + 1` and get exact,
 50+ digit answers as you type, in an app that looks and behaves like it was
 made for macOS.
