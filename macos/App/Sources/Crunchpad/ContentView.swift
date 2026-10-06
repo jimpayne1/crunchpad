@@ -5,6 +5,7 @@ import SwiftUI
 struct ContentView: View {
     @Environment(Calculator.self) private var calculator
     @FocusState private var focus: FocusField?
+    @Environment(\.controlActiveState) private var activeState
 
     var body: some View {
         @Bindable var calculator = calculator
@@ -27,6 +28,11 @@ struct ContentView: View {
         .navigationSubtitle("\(calculator.angleUnit.label) · \(calculator.resultFormat.label)")
         .onAppear { focus = .editor }
         .onChange(of: calculator.focusRequest) { focus = .editor }
+        // Coming back to the window should land in the editor, even if a
+        // click in the transcript left nothing focused.
+        .onChange(of: activeState) { _, state in
+            if state == .key, focus == nil { focus = .editor }
+        }
         .onChange(of: calculator.focusCycleRequest) {
             // Two stops (editor, inspector), so forward and backward coincide.
             focus = (focus == .editor && calculator.showInspector) ? .inspectorFilter : .editor
