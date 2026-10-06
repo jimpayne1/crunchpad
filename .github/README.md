@@ -1,6 +1,6 @@
 # Crunchpad
 
-**A native Mac calculator with SpeedCrunch's high-precision engine.**
+**SpeedCrunch's high-precision engine as a native Mac app.**
 
 ![Crunchpad in dark mode, with the Functions panel open](https://github.com/jimpayne1/crunchpad/raw/main/.github/screenshot.png)
 

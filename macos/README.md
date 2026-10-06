@@ -1,5 +1,7 @@
 # Crunchpad
 
+**SpeedCrunch's high-precision engine as a native Mac app.**
+
 A native macOS calculator built on the engine of
 [SpeedCrunch](https://github.com/heldercorreia/speedcrunch), the high-precision
 keyboard-driven calculator. Crunchpad is an independent fork and is not the
