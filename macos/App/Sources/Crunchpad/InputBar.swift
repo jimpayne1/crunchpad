@@ -9,6 +9,18 @@ struct InputBar: View {
     @Environment(Calculator.self) private var calculator
     var focus: FocusState<FocusField?>.Binding
     var fontSize: CGFloat = 20
+    @Environment(\.controlActiveState) private var activeState
+
+    /// The main window and the menu bar popover both show this field, bound
+    /// to one selection. Only the key window's field may write it: once the
+    /// popover has been opened, its hidden field otherwise reports its own
+    /// stale caret on every edit and yanks the other one back (`23000` →
+    /// `00032`).
+    private var selection: Binding<TextSelection?> {
+        Binding(
+            get: { calculator.selection },
+            set: { if activeState == .key { calculator.selection = $0 } })
+    }
 
     var body: some View {
         @Bindable var calculator = calculator
@@ -18,7 +30,7 @@ struct InputBar: View {
                 Image(systemName: "chevron.right")
                     .font(.system(size: fontSize * 0.7, weight: .semibold))
                     .foregroundStyle(.tint)
-                TextField("Expression", text: $calculator.input, selection: $calculator.selection,
+                TextField("Expression", text: $calculator.input, selection: selection,
                           prompt: Text(InputBar.prompt))
                     .textFieldStyle(.plain)
                     .font(.system(size: fontSize, design: .monospaced))

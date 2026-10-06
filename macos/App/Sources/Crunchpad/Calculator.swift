@@ -279,7 +279,7 @@ final class Calculator {
         saveSession()
 
         if autoCopyResult, let result = entry.result { copy(result) }
-        if !keepLastExpression { input = "" }
+        if !keepLastExpression { setInput("") }
         preview = nil
     }
 
